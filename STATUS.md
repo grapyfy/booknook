@@ -32,3 +32,12 @@ Rooms are real now — new `Room` table (`roomNumber`, `roomType`, `ratePerNight
 Verified end-to-end: created a ₹8,000/night room, confirmed booking it correctly triggers the 18% GST slab (vs. 12% for the earlier ₹3,500 test) — both slabs now proven against real data, not just reasoned about. Booking a nonexistent room number fails with a clear error instead of a 500.
 
 WhatsApp confirmation explicitly deferred by Abhay for now (real cost/time from Haristhenics experience) — not forgotten, just not next. `types/room.ts` contract is ready whenever the teammate wants to build a room-management screen.
+
+## 2026-08-31 — Abhay
+Excel/CSV importer done (backend-only) — `POST /api/import/bookings`, a `.csv` file upload. This is the "Nothing Lost" migration feature from the PRD (Module J) — every row gets a fate: imported, or flagged with a specific reason, nothing silently dropped. Handles real messy-spreadsheet variation on purpose: flexible header matching (e.g. "Mobile Number"/"Contact"/"Phone" all map to phone), mixed date formats (DD-MM-YYYY, DD/MM/YYYY, ISO), and unknown rooms auto-create themselves if the row gives a rate (never guesses one — a room with no rate and no existing record gets flagged, not silently defaulted).
+
+Verified against a deliberately messy 6-row test CSV (mixed headers/date formats, one missing phone, one same-day checkout, one unknown room with no rate): 3 imported correctly, 3 flagged with the right reasons, all 6 accounted for.
+
+Added `papaparse` (CSV parsing) as a real dependency — hand-rolling CSV parsing (quoted commas, escaped quotes) is exactly the kind of thing worth a proven library instead of reinventing, per the "no unnecessary deps, but do the job right" standard.
+
+.xlsx (actual Excel binary format) isn't supported yet, only .csv — most spreadsheet tools export CSV fine, revisit if a real hotel's export turns out to be .xlsx-only.
