@@ -90,6 +90,11 @@ Whoever's session starts work should read `STATUS.md` first (same habit as check
 ## Tech stack (decided 2026-08-31)
 Next.js 15 (App Router) + TypeScript + Tailwind — the "boring, proven" default for SaaS in 2026, not Firebase/Firestore (which the last project used). **Database: PostgreSQL via Supabase, with Prisma as the ORM** — chosen specifically over Firestore because this product's data (rooms, bookings, guests, GST line items) is genuinely relational, and Prisma's migration system (`npm run db:migrate`) gives real, tracked, versioned schema changes — the direct fix for the last project's worst recurring problem (schema patched live in prod via one-off scripts, which once caused permanent data loss). Supabase also provides Auth and Storage built in, so no separate auth provider is needed. Hosting: Vercel. Payments: Razorpay, BYOG model (see above).
 
+**Supabase + Prisma gotchas hit during setup (2026-08-31), don't rediscover these:**
+- `DATABASE_URL` (the Transaction pooler string) must end with `?pgbouncer=true`, or writes intermittently fail with `prepared statement "sX" already exists`.
+- `DIRECT_URL` (used only for migrations) needs the "Direct connection" string, but that requires IPv6 — on an IPv4-only network (most home/office wifi) it fails with "Can't reach database server." Use the "Session pooler" string instead (same pooler host as Transaction pooler, port 5432).
+- The Prisma CLI only reads a file literally named `.env` — Next.js reads `.env.local`. Both files need `DATABASE_URL`/`DIRECT_URL`, or migrations silently can't find them.
+
 Dependency versions get checked against `npm audit` before adding — a package with an open critical/high vulnerability doesn't go in without a specific reason logged here. (2026-08-31: accepted one open moderate/high PostCSS vulnerability nested inside Next.js's own build toolchain — fixing it requires an early, likely-unstable Next 16 major bump; revisit when 16 is more established. Nothing else open as of this date.)
 
 ## Known failure patterns in AI-assisted ("vibe coded") code — checklist for every session
