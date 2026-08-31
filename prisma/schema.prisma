@@ -13,6 +13,31 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+// One row per staff login. `supabaseUserId` links to Supabase Auth's own user record —
+// that's what actually handles passwords/sessions; this table just says who they are
+// and what they're allowed to do once logged in.
+model Staff {
+  id             String    @id @default(uuid())
+  supabaseUserId String    @unique
+  name           String
+  email          String    @unique
+  role           StaffRole
+  active         Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+}
+
+// All 6 roles from the PRD are listed so the schema doesn't need a migration later —
+// but only OWNER and FRONT_DESK are actually assignable/enforced in v1. The other 4
+// have no corresponding screens yet (housekeeping, accountant reports aren't built),
+// so there's nothing for them to do — don't build permission checks for unused roles.
+enum StaffRole {
+  OWNER // combines PRD's Super Admin + Property Manager for v1 (single property, no chain yet)
+  FRONT_DESK
+  ACCOUNTANT // reserved — no accountant-only screens built yet
+  HOUSEKEEPING_SUPERVISOR // reserved — housekeeping module not built yet
+  HOUSEKEEPING_STAFF // reserved — housekeeping module not built yet
+}
+
 model Guest {
   id       String    @id @default(uuid())
   name     String

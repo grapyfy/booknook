@@ -13,3 +13,8 @@ Working name: BookNook (was "StayGrid" in early planning — provisional).
 Real Supabase project connected (Mumbai/ap-south-1 region). First migration applied (`prisma/migrations/20260831083531_init`) — `Booking` and `Guest` tables now exist for real. Verified end-to-end: `GET`/`POST /api/bookings` tested against the live database, both work. Repo pushed to GitHub (`github.com/abhayyy-singh/booknook`, private).
 
 Two Supabase+Prisma gotchas hit and documented in CLAUDE.md — worth reading before touching `.env`: the pooler connection needs `?pgbouncer=true`, and `DIRECT_URL` needs the Session pooler (not true Direct connection) on an IPv4 network.
+
+## 2026-08-31 — Abhay
+Login built (Supabase Auth + a `Staff` table with roles). Two roles actually enforced for v1 — `OWNER` and `FRONT_DESK` — the other 4 PRD roles (accountant, housekeeping) exist in the schema but aren't wired to any screen yet, since those features aren't built. No public signup — staff logins are provisioned via `scripts/create-staff.js`. Dashboard is now behind `middleware.ts` (redirects to `/login` if not authenticated) and shows the real logged-in staff member's name/role instead of mock data. Verified end-to-end with a real browser (Playwright): login → redirect → dashboard renders correctly, screenshotted.
+
+Installed the `@supabase/server` skill (`.agents/skills/`) — mostly for Supabase Edge Functions, which BookNook doesn't use, but it flagged our Supabase key env-var names were the old "anon"/"service_role" style; renamed to current "publishable"/"secret" naming.
