@@ -28,6 +28,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const booking = await createBooking(parsed.data);
-  return NextResponse.json(booking, { status: 201 });
+  try {
+    const booking = await createBooking(parsed.data);
+    return NextResponse.json(booking, { status: 201 });
+  } catch (err) {
+    // getActiveRoomRate throws a plain Error for "room doesn't exist" / "room inactive" —
+    // both are the caller's mistake (400), not a server problem (500)
+    const message = err instanceof Error ? err.message : "Could not create booking";
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
 }

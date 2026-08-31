@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import type { Booking } from "@/types/booking";
+import { getActiveRoomRate } from "@/services/roomService";
 
 function nightsBetween(checkIn: string, checkOut: string): number {
   const ms = new Date(checkOut).getTime() - new Date(checkIn).getTime();
@@ -35,7 +36,7 @@ export async function createBooking(input: {
   checkOut: string;
   roomNumber: string;
 }): Promise<Booking> {
-  const roomRatePerNight = await lookUpRateForRoom(input.roomNumber);
+  const roomRatePerNight = await getActiveRoomRate(input.roomNumber);
   const nights = nightsBetween(input.checkIn, input.checkOut);
   const amount = roomRatePerNight * nights;
 
@@ -54,9 +55,4 @@ export async function createBooking(input: {
   });
 
   return toContractShape(row);
-}
-
-// Placeholder — replace with a real room-rates lookup once that data model exists.
-async function lookUpRateForRoom(_roomNumber: string): Promise<number> {
-  return 3500;
 }

@@ -38,6 +38,15 @@ enum StaffRole {
   HOUSEKEEPING_STAFF // reserved — housekeeping module not built yet
 }
 
+model Room {
+  id         String   @id @default(uuid())
+  roomNumber String   @unique
+  roomType   String   // e.g. "Standard", "Deluxe" — free text for v1, not an enum (hotels name these differently)
+  ratePerNight Int    // rupees — the actual source of truth bookingService looks up, no more hardcoded rate
+  active     Boolean  @default(true) // false = under maintenance / not sellable, without deleting booking history
+  createdAt  DateTime @default(now())
+}
+
 model Guest {
   id       String    @id @default(uuid())
   name     String

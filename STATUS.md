@@ -25,3 +25,10 @@ GST billing done (backend-only — no UI work today, staying in the backend/logi
 Verified end-to-end: created a real booking (₹3,500/night × 2 nights = ₹7,000), generated its folio (12% GST → ₹420 CGST + ₹420 SGST → ₹7,840 total), confirmed a second call returns the same folio instead of creating a duplicate.
 
 **For the teammate:** UI can now build against `types/booking.ts`'s `Folio` type + `GET`/`POST /api/bookings/:id/folio` whenever ready — nothing UI-side blocking here.
+
+## 2026-08-31 — Abhay
+Rooms are real now — new `Room` table (`roomNumber`, `roomType`, `ratePerNight`, `active`). Bookings used to hardcode ₹3,500/night for every room; now `bookingService` looks up the actual rate via `roomService.getActiveRoomRate`, which also rejects a booking cleanly (400, not a crash) if the room doesn't exist or is inactive (maintenance). New `GET`/`POST /api/rooms`.
+
+Verified end-to-end: created a ₹8,000/night room, confirmed booking it correctly triggers the 18% GST slab (vs. 12% for the earlier ₹3,500 test) — both slabs now proven against real data, not just reasoned about. Booking a nonexistent room number fails with a clear error instead of a 500.
+
+WhatsApp confirmation explicitly deferred by Abhay for now (real cost/time from Haristhenics experience) — not forgotten, just not next. `types/room.ts` contract is ready whenever the teammate wants to build a room-management screen.
