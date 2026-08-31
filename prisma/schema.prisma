@@ -49,15 +49,17 @@ model Guest {
 }
 
 model Booking {
-  id         String   @id @default(uuid())
-  guest      Guest    @relation(fields: [guestId], references: [id])
-  guestId    String
-  checkIn    DateTime
-  checkOut   DateTime
-  roomNumber String
-  status     BookingStatus @default(CONFIRMED)
-  amount     Int      // rupees, always computed server-side from the room rate — never accepted from the client
-  createdAt  DateTime @default(now())
+  id              String   @id @default(uuid())
+  guest           Guest    @relation(fields: [guestId], references: [id])
+  guestId         String
+  checkIn         DateTime
+  checkOut        DateTime
+  roomNumber      String
+  status          BookingStatus @default(CONFIRMED)
+  roomRatePerNight Int     // rupees per night — the GST slab (12%/18%) depends on THIS, not the total
+  amount          Int      // roomRatePerNight * nights, always computed server-side — never accepted from the client
+  createdAt       DateTime @default(now())
+  folio           Folio?
 
   @@index([guestId])
   @@index([checkIn, checkOut])
@@ -68,4 +70,27 @@ enum BookingStatus {
   CHECKED_IN
   CHECKED_OUT
   CANCELLED
+}
+
+// One GST-compliant bill per booking. Numbers are stored, not recomputed on read —
+// a GST rate change in the future must never alter an already-issued invoice.
+model Folio {
+  id            String   @id @default(uuid())
+  booking       Booking  @relation(fields: [bookingId], references: [id])
+  bookingId     String   @unique
+  invoiceNumber String   @unique
+  sacCode       String   @default("996311") // Accommodation services — fixed for this business type
+  baseAmount    Int      // pre-tax, rupees
+  gstRate       Int      // 12 or 18, based on roomRatePerNight at the time of billing
+  gstType       GstType  // CGST_SGST (intra-state) or IGST (inter-state)
+  cgst          Int      // 0 if gstType is IGST
+  sgst          Int      // 0 if gstType is IGST
+  igst          Int      // 0 if gstType is CGST_SGST
+  totalAmount   Int      // baseAmount + tax
+  createdAt     DateTime @default(now())
+}
+
+enum GstType {
+  CGST_SGST
+  IGST
 }

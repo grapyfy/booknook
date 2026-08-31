@@ -20,6 +20,21 @@ export interface Booking {
   createdAt: string; // ISO timestamp
 }
 
+export interface Folio {
+  id: string;
+  bookingId: string;
+  invoiceNumber: string;
+  sacCode: string;
+  baseAmount: number;
+  gstRate: number;
+  gstType: "CGST_SGST" | "IGST";
+  cgst: number;
+  sgst: number;
+  igst: number;
+  totalAmount: number;
+  createdAt: string;
+}
+
 // Example data for the UI to build against before the real API exists.
 export const MOCK_BOOKINGS: Booking[] = [
   {

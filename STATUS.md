@@ -18,3 +18,10 @@ Two Supabase+Prisma gotchas hit and documented in CLAUDE.md — worth reading be
 Login built (Supabase Auth + a `Staff` table with roles). Two roles actually enforced for v1 — `OWNER` and `FRONT_DESK` — the other 4 PRD roles (accountant, housekeeping) exist in the schema but aren't wired to any screen yet, since those features aren't built. No public signup — staff logins are provisioned via `scripts/create-staff.js`. Dashboard is now behind `middleware.ts` (redirects to `/login` if not authenticated) and shows the real logged-in staff member's name/role instead of mock data. Verified end-to-end with a real browser (Playwright): login → redirect → dashboard renders correctly, screenshotted.
 
 Installed the `@supabase/server` skill (`.agents/skills/`) — mostly for Supabase Edge Functions, which BookNook doesn't use, but it flagged our Supabase key env-var names were the old "anon"/"service_role" style; renamed to current "publishable"/"secret" naming.
+
+## 2026-08-31 — Abhay
+GST billing done (backend-only — no UI work today, staying in the backend/logic lane per the team split, see CLAUDE.md). New `Folio` table: 12%/18% GST slab based on the room's per-night rate (not the total), CGST+SGST split (assumes intra-state for v1 — IGST for inter-state guests is deferred, needs guest billing-state capture which isn't built), fixed SAC code 996311, auto invoice numbering (`BN-2026-00001`), idempotent (calling it twice on the same booking never double-bills). `Booking` now stores `roomRatePerNight` separately from the total `amount` — needed because the GST slab depends on the nightly rate, not the total.
+
+Verified end-to-end: created a real booking (₹3,500/night × 2 nights = ₹7,000), generated its folio (12% GST → ₹420 CGST + ₹420 SGST → ₹7,840 total), confirmed a second call returns the same folio instead of creating a duplicate.
+
+**For the teammate:** UI can now build against `types/booking.ts`'s `Folio` type + `GET`/`POST /api/bookings/:id/folio` whenever ready — nothing UI-side blocking here.

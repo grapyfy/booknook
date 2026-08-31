@@ -1,6 +1,11 @@
 import { db } from "@/lib/db";
 import type { Booking } from "@/types/booking";
 
+function nightsBetween(checkIn: string, checkOut: string): number {
+  const ms = new Date(checkOut).getTime() - new Date(checkIn).getTime();
+  return Math.max(1, Math.round(ms / (1000 * 60 * 60 * 24)));
+}
+
 function toContractShape(row: Awaited<ReturnType<typeof db.booking.findFirstOrThrow>>): Booking {
   return {
     id: row.id,
@@ -30,13 +35,16 @@ export async function createBooking(input: {
   checkOut: string;
   roomNumber: string;
 }): Promise<Booking> {
-  const amount = await lookUpRateForRoom(input.roomNumber, input.checkIn, input.checkOut);
+  const roomRatePerNight = await lookUpRateForRoom(input.roomNumber);
+  const nights = nightsBetween(input.checkIn, input.checkOut);
+  const amount = roomRatePerNight * nights;
 
   const row = await db.booking.create({
     data: {
       checkIn: new Date(input.checkIn),
       checkOut: new Date(input.checkOut),
       roomNumber: input.roomNumber,
+      roomRatePerNight,
       amount,
       guest: {
         create: { name: input.guest.name, phone: input.guest.phone, email: input.guest.email },
@@ -49,6 +57,6 @@ export async function createBooking(input: {
 }
 
 // Placeholder — replace with a real room-rates lookup once that data model exists.
-async function lookUpRateForRoom(_roomNumber: string, _checkIn: string, _checkOut: string): Promise<number> {
+async function lookUpRateForRoom(_roomNumber: string): Promise<number> {
   return 3500;
 }
