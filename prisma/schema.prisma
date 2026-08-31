@@ -1,0 +1,46 @@
+// The database's real schema. Changes here go through `npm run db:migrate`,
+// which creates a tracked, numbered migration file — never hand-edit the database directly.
+// This is the fix for the exact mistake made on the last project: schema changes patched
+// live in prod with one-off scripts instead of tracked migrations. See CLAUDE.md.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Guest {
+  id       String    @id @default(uuid())
+  name     String
+  phone    String
+  email    String?
+  bookings Booking[]
+
+  @@index([phone])
+}
+
+model Booking {
+  id         String   @id @default(uuid())
+  guest      Guest    @relation(fields: [guestId], references: [id])
+  guestId    String
+  checkIn    DateTime
+  checkOut   DateTime
+  roomNumber String
+  status     BookingStatus @default(CONFIRMED)
+  amount     Int      // rupees, always computed server-side from the room rate — never accepted from the client
+  createdAt  DateTime @default(now())
+
+  @@index([guestId])
+  @@index([checkIn, checkOut])
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+}
