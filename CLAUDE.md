@@ -2,10 +2,49 @@
 
 Working name as of 2026-08-31 (provisional, may change again). Everywhere below that says "StayGrid" refers to the same product — the original PRD and early planning docs use that name, not renamed throughout yet.
 
-Shared source of truth for anyone (or any AI tool) working on this repo — Abhay (backend/logic) and teammate (UI), currently 2 people. Move this file to the root of the actual code repo once it exists; keep it updated there, not just here.
+Shared source of truth for anyone (or any AI tool — Claude, Cursor, Copilot, whatever) working on this repo — Abhay (backend/logic) and teammate (UI), currently 2 people. This file lives at the repo root and is meant to be read start-to-finish by a new person/AI picking up the project for the first time.
 
 ## What this is
 StayGrid India — WhatsApp-first, UPI-first hotel PMS + channel manager for independent Indian hotels (10–200 rooms). Full PRD: `StayGrid_India_PRD_v1_1.md` in this folder — treat it as the north star vision, not the v1 spec (see scope below).
+
+## Getting started (read this first, whoever you are)
+
+Repo: `https://github.com/abhayyy-singh/booknook` (private).
+
+```bash
+git clone https://github.com/abhayyy-singh/booknook.git
+cd booknook
+npm install
+npm run dev   # http://localhost:3000
+```
+
+**If you're only building UI (screens/components):** you don't need any database credentials at all. Screens should be built against the mock data already in `types/booking.ts` (`MOCK_BOOKINGS`) and `types/room.ts` (`MOCK_ROOMS`) — those are the "contracts," see below. You can run the dev server and build/preview screens with zero `.env` setup. `/login` will error without real Supabase config, but every other screen works fine against mock data.
+
+**If you need the real backend running** (testing the actual login/API, not just UI): ask Abhay directly for the Supabase values (never share these in a commit or a public place) — `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_SECRET_KEY`. Copy `.env.example` to `.env.local` (Next.js) and also to `.env` (Prisma CLI reads this one separately — see the gotchas note further down) and fill them in.
+
+**Stack, in one line:** Next.js 15 (App Router, React, TypeScript) for a web app — not a native mobile app, not React Native. `.tsx` files and the `app/` folder are Next.js conventions for building web pages; see "Platform" below for why this isn't a native app.
+
+## Current build status (snapshot — keep this section updated, don't rely only on the dated log in STATUS.md for "what exists right now")
+
+**Backend — done and verified against a real database:**
+- Login + roles (`OWNER`, `FRONT_DESK` enforced; 4 more PRD roles reserved in the schema, unused) — `app/login/`, `middleware.ts`
+- Bookings — create/list, real room-rate lookup, never trusts a client-sent amount — `app/api/bookings/`
+- Rooms — create/list, real rates (nothing hardcoded) — `app/api/rooms/`
+- GST billing (Folio) — 12%/18% slab by room rate, CGST+SGST (intra-state assumed for v1), SAC 996311, idempotent — `app/api/bookings/[id]/folio/`
+- Excel/CSV import with "Nothing Lost" report — flexible headers, mixed date formats, auto-creates unknown rooms only if a rate is given — `app/api/import/bookings/`
+
+**Not built yet:** any real UI beyond a bare-bones login form and a plain booking list (`app/dashboard/page.tsx` — built only to verify the backend end-to-end, not meant to be the real UI; UI is the teammate's lane, see "Team split" below). WhatsApp confirmation (deferred). Offline check-in/sync queue.
+
+## What the UI needs to build (teammate's call on exact order/design — this is what exists to build against)
+
+Screens with a real, working API already behind them:
+1. **Login** — exists (`app/login/page.tsx`) but bare-bones; restyle freely, the auth logic underneath is solid
+2. **Booking calendar/list + "new booking" form** — `types/booking.ts`'s `Booking`/`Guest` contract, `GET`/`POST /api/bookings`
+3. **Room management** (add a room, see rates) — `types/room.ts`'s `Room` contract, `GET`/`POST /api/rooms`
+4. **Folio/invoice view** (show the GST bill for a booking) — `types/booking.ts`'s `Folio` contract, `GET`/`POST /api/bookings/:id/folio`
+5. **CSV import screen** (upload a file, show the "Nothing Lost" report) — `POST /api/import/bookings`, multipart `file` field, returns `{totalRows, imported[], flagged[], roomsCreated[]}`
+
+Build against mock data first (already in `types/`), swap to the real fetch calls once ready — that's the contract workflow below.
 
 ## v1 scope — locked
 **Build:** front desk (calendar, walk-in, guest profile, digital KYC), GST folio + billing + GSTR-1 export, UPI payments (BYOG model — see below), WhatsApp booking confirmation + missed-call recovery, Excel/CSV importer with "Nothing Lost" report, offline check-in with a sync queue.
@@ -46,6 +85,8 @@ GitHub Flow, short-lived branches: `git pull origin main` daily → `feature/<na
 Deploy sequencing: backend changes go straight to `main` if purely additive/backward-compatible; UI/frontend changes go through a preview deploy first, reviewed live, before merging to `main`.
 
 **AI-assistant rule:** never run two AI coding sessions against the same repo checkout at the same time — this caused real conflicts on a prior project (a session's file got reverted out from under it). If both people use AI assistants, merge one AI-written branch at a time, not two simultaneously.
+
+**Tool-agnostic on purpose.** The teammate may be using a different AI tool (or none) — this file plus `STATUS.md` plus normal git is the whole collaboration mechanism, and it's deliberately kept plain-markdown so it works regardless of tool. If the teammate ever also moves to Claude Code specifically, it's worth revisiting whether anything tighter is useful then — not before.
 
 ## Engineering standards (every change)
 - DB rules restrict reads/writes to authenticated users only; never expose API keys client-side
