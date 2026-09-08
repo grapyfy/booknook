@@ -12,11 +12,21 @@ import { NotificationBell } from "@/components/NotificationBell";
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
+  // /dashboard-preview exists so the UI is viewable without real Supabase
+  // credentials (/dashboard itself is gated by middleware.ts and crashes
+  // without them — see STATUS.md). While browsing via the preview route, the
+  // sidebar's "Dashboard" link should stay on it too, not bounce back into
+  // the gated route.
+  const isPreview = pathname.startsWith("/dashboard-preview");
+
   // Pick the single longest-matching nav href, so e.g. /bookings/calendar
   // highlights only "Calendar", not both "Calendar" and "Bookings" (which is
   // a prefix of it).
   const activeHref = [...NAV_ITEMS]
-    .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
+    .filter(
+      (item) =>
+        pathname === item.href || pathname.startsWith(`${item.href}/`) || (isPreview && item.href === "/dashboard")
+    )
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
   return (
@@ -34,10 +44,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <div className="px-3 pb-1 text-xs font-semibold text-neutral-400 uppercase tracking-wide">{group.label}</div>
               {group.items.map((item) => {
                 const active = item.href === activeHref;
+                const href = item.href === "/dashboard" && isPreview ? "/dashboard-preview" : item.href;
                 return (
                   <Link
                     key={item.href}
-                    href={item.href}
+                    href={href}
                     className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                       active ? "bg-blue-600 text-white" : "text-neutral-600 hover:bg-neutral-100"
                     }`}

@@ -195,3 +195,11 @@ Four more honest UI-only stubs (`IllustrativeBanner` on each, matching the patte
 Verified: clean production build (33 routes), headless-browser pass across all 4 new screens plus a screenshot of the regrouped nav. Zero console errors. Reset all mock-store files afterward.
 
 **A note for whoever reviews this branch**: it has grown to 10 STATUS.md entries / 5 commits over one continuous session, which is exactly the "PR grown large" signal CLAUDE.md's own engineering standards call out as worth splitting up in the future. Recommend reviewing and merging what's here before more gets piled on, rather than continuing to grow it further.
+
+## 2026-09-08 — Teammate (part 11) — fix: Detailed view crashing on the preview route
+
+Bug report: "detailed preview isn't working." Root cause — `/dashboard-preview` (the route that exists specifically so the dashboard is viewable without real Supabase credentials) shares its page component with the real, middleware-gated `/dashboard`, but the Minimal/Detailed toggle and the sidebar's "Dashboard" link were both hardcoded to `/dashboard`. Clicking either while browsing via the preview route bounced into the gated route, which crashes without real Supabase env vars — same known limitation as `/login`.
+
+Fixed: the toggle (`components/DashboardViewToggle.tsx`, now a small client component) builds its links from the current pathname instead of a hardcoded path, and the sidebar's "Dashboard" link stays on `/dashboard-preview` when that's where you already are. Also fixed a smaller related bug found in the same spot: the sidebar previously never highlighted anything while on the preview route.
+
+Verified with a headless-browser pass clicking through Detailed → Minimal → sidebar Dashboard, all staying on the preview route with no crash. Also cleared a stale `.next` dev-cache issue unrelated to this bug (a `next build`/`next dev` alternation artifact from earlier in the session, not an app bug) that was separately causing a 500 on first load.

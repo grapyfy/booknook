@@ -347,3 +347,15 @@ Everything below was considered and deliberately not built — not an oversight:
 - **No real data to build against honestly**: OTA/gateway/bank reconciliation, multi-property switching (no property/tenant concept in the schema), a booking "source/channel" field (Reports uses revenue-by-room instead).
 - **Deferred as a future phase, not this build**: Shift handover, Manager logbook, Activity/audit trail, a full ⌘K command palette (topbar search covers the core case), Custom report builder, Local leads & lead recovery, Inventory/supplies, Expenses, POS/hotel services, Loyalty, Digital key/PWA, AI features, Guest self-service portal, and a real Guest Requests task system (towels/taxi/late-checkout — this one's a strong future candidate since it'd be genuinely buildable the same way Housekeeping/Maintenance were, not a stub).
 - **Offline check-in/sync queue** — locked v1 scope, still not built; `OnlineStatusBadge` (online/offline detection only) is the only piece in place.
+
+---
+
+## Fix: Detailed view + sidebar "Dashboard" link crashing on the preview route (2026-09-08)
+
+**Bug**: `/dashboard-preview` exists specifically so the dashboard is viewable without real Supabase credentials (`/dashboard` itself is gated by `middleware.ts` and crashes without them). But the Minimal/Detailed toggle's links were hardcoded to `/dashboard?view=detailed`, and the sidebar's "Dashboard" nav item always pointed at `/dashboard` too — so clicking either while browsing via the preview route bounced straight into the gated, crashing route. Reported by the teammate as "detailed preview isn't working."
+
+**Fix**:
+- `DashboardViewToggle` (`components/DashboardViewToggle.tsx`, new) — a small client component that reads `usePathname()` and builds both links relative to the *current* path (`pathname` / `${pathname}?view=detailed`) instead of a hardcoded `/dashboard`. Works correctly whether rendered at `/dashboard` or `/dashboard-preview`, since both render the exact same page component (`dashboard-preview/page.tsx` just re-exports it).
+- `AppShell.tsx` — the sidebar's "Dashboard" link now resolves to `/dashboard-preview` instead of `/dashboard` whenever the current pathname is already under `/dashboard-preview`, and the active-highlight logic treats the preview route as "Dashboard" being active too (previously nothing in the sidebar highlighted while on the preview route — a smaller, related bug fixed at the same time).
+
+Verified with a real headless-browser pass: loaded `/dashboard-preview`, clicked Detailed (stayed on preview, showed the full detailed content), clicked Minimal back, then — starting fresh from `/dashboard-preview?view=detailed` — clicked the sidebar's "Dashboard" link and confirmed it lands back on `/dashboard-preview` with no crash, instead of the previous 500.
