@@ -359,3 +359,20 @@ Everything below was considered and deliberately not built — not an oversight:
 - `AppShell.tsx` — the sidebar's "Dashboard" link now resolves to `/dashboard-preview` instead of `/dashboard` whenever the current pathname is already under `/dashboard-preview`, and the active-highlight logic treats the preview route as "Dashboard" being active too (previously nothing in the sidebar highlighted while on the preview route — a smaller, related bug fixed at the same time).
 
 Verified with a real headless-browser pass: loaded `/dashboard-preview`, clicked Detailed (stayed on preview, showed the full detailed content), clicked Minimal back, then — starting fresh from `/dashboard-preview?view=detailed` — clicked the sidebar's "Dashboard" link and confirmed it lands back on `/dashboard-preview` with no crash, instead of the previous 500.
+
+---
+
+## Channel stop-sell / inventory control (2026-09-08) — `/channels`
+
+Added at the teammate's explicit request for "stopping booking and accepting booking, controlling all OTA platforms." New mock domain (`components/lib/channelInventoryMock.ts`), file-persisted to `.mock-store-channel-inventory.json`. No contract change — `roomType` values come straight from real `listRoomsMock()`, `channel` values from the shared `OTA_PARTNER_NAMES` list (`constants/channels.ts`, extracted from what was previously an inline array on this same page).
+
+**This is real, functional, mock-persisted state — not a static mockup.** Toggling a cell genuinely flips and survives a reload. What it is *not*: a live control surface — there's no real MakeMyTrip/Goibibo/Booking.com connection (same v1-scope-deferred reason the partner cards above it are illustrative), so no toggle here ever reaches an actual OTA. The banner on the matrix says this explicitly.
+
+Three levels of control, all via `ChannelInventoryMatrix.tsx` (client) → `setStopSellAction` / `setChannelStopSellAction` / `setAllChannelsStopSellAction`:
+- **Single cell** (one room type × one channel) — click a cell to flip Open ⇄ Stopped.
+- **Whole channel** ("pause all" / "reopen all" under a channel's column header) — stops or reopens that one OTA across every room type, e.g. pulling out of one channel entirely without touching the others.
+- **Everything** ("Stop selling everywhere" / "Reopen everything", top-right) — a single master switch across every room type × every channel, for a full-property closure. The button's own label/color reflects whether *anything* is currently stopped (`entries.some(e => e.stopSell)`), not a separately tracked flag.
+
+Metasearch (Google Hotels) is excluded from the matrix — it doesn't take direct reservations the way an OTA does, so stop-sell doesn't apply the same way; `OTA_PARTNER_NAMES` filters `CHANNEL_PARTNERS` down to `type === "OTA"` for exactly this reason.
+
+Deliberately not built: per-channel Min/Max LOS or Closed-on-Arrival/Departure restrictions (the matrix covers the core "stop accepting bookings" ask; rate-plan-level restrictions would be a reasonable next increment if actually needed, not built speculatively here).

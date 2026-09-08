@@ -203,3 +203,13 @@ Bug report: "detailed preview isn't working." Root cause — `/dashboard-preview
 Fixed: the toggle (`components/DashboardViewToggle.tsx`, now a small client component) builds its links from the current pathname instead of a hardcoded path, and the sidebar's "Dashboard" link stays on `/dashboard-preview` when that's where you already are. Also fixed a smaller related bug found in the same spot: the sidebar previously never highlighted anything while on the preview route.
 
 Verified with a headless-browser pass clicking through Detailed → Minimal → sidebar Dashboard, all staying on the preview route with no crash. Also cleared a stale `.next` dev-cache issue unrelated to this bug (a `next build`/`next dev` alternation artifact from earlier in the session, not an app bug) that was separately causing a 500 on first load.
+
+## 2026-09-08 — Teammate (part 12) — channel stop-sell / inventory control
+
+Teammate asked for "UI of stopping booking and accepting booking controlling all OTA platforms" — the Rates & Inventory piece of the Channel Manager module from the original reference list. Extended the existing `/channels` stub (already an established, explicitly-flagged v1-scope exception since part 4) rather than opening new scope-conflict territory.
+
+Built a real, interactive, mock-persisted stop-sell matrix — room type × OTA channel, three control levels: toggle one cell, pause/reopen a whole channel, or a global "stop selling everywhere" master switch. **This is genuinely functional state (survives a reload), not a static mockup** — but it's still not a live control surface, since no real OTA connection exists; nothing toggled here is ever pushed anywhere. Same honest-stub framing as the rest of `/channels`, made explicit in the matrix's own banner text.
+
+Extracted the previously-inline OTA partner list on `/channels` into `constants/channels.ts` so the partner cards and the new stop-sell matrix read from one shared list instead of drifting apart. Metasearch (Google Hotels) is correctly excluded from the matrix — it doesn't take direct bookings, so "stop-sell" isn't a meaningful concept for it.
+
+Verified with a real headless-browser pass: toggled a single cell (Stopped/Open flip persisted correctly), paused MakeMyTrip across all 3 room types via the per-channel control (confirmed only that channel changed, others stayed Open), and exercised the global toggle both directions (Stop selling everywhere → 15/15 cells stopped → Reopen everything → 0/15 stopped). Zero console errors. Reset the new mock-store file afterward.

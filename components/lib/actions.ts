@@ -25,6 +25,11 @@ import {
   addCashPaidOutMock,
   closeRegisterMock,
 } from "@/components/lib/cashRegisterMock";
+import {
+  setStopSellMock,
+  setAllChannelsStopSellMock,
+  setChannelStopSellMock,
+} from "@/components/lib/channelInventoryMock";
 import type { ImportReport } from "@/components/lib/mockData";
 import type { Booking } from "@/types/booking";
 import { advanceHousekeepingStatusMock, assignHousekeepingStaffMock } from "@/components/lib/housekeepingMock";
@@ -451,5 +456,37 @@ export async function closeRegisterAction(actualAmount: number): Promise<ActionR
     return { ok: false, error: err instanceof Error ? err.message : "Could not close register" };
   }
   revalidatePath("/cash-register");
+  return { ok: true };
+}
+
+// ---- Channel inventory (stop-sell / open-sell — see channelInventoryMock.ts) ----
+
+export async function setStopSellAction(roomType: string, channel: string, stopSell: boolean): Promise<ActionResult> {
+  try {
+    setStopSellMock(roomType, channel, stopSell);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not update stop-sell" };
+  }
+  revalidatePath("/channels");
+  return { ok: true };
+}
+
+export async function setAllChannelsStopSellAction(roomTypes: string[], stopSell: boolean): Promise<ActionResult> {
+  try {
+    setAllChannelsStopSellMock(roomTypes, stopSell);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not update all channels" };
+  }
+  revalidatePath("/channels");
+  return { ok: true };
+}
+
+export async function setChannelStopSellAction(channel: string, roomTypes: string[], stopSell: boolean): Promise<ActionResult> {
+  try {
+    setChannelStopSellMock(channel, roomTypes, stopSell);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not update channel" };
+  }
+  revalidatePath("/channels");
   return { ok: true };
 }
