@@ -59,7 +59,7 @@ export function CashRegisterPanel({ today }: { today: CashRegisterSummary }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="rounded-lg border border-neutral-200 bg-white p-6 flex flex-col gap-4">
-        <div className="grid grid-cols-2 gap-4 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <div>
             <div className="text-neutral-500">Opening balance</div>
             {editingOpening ? (
@@ -108,7 +108,7 @@ export function CashRegisterPanel({ today }: { today: CashRegisterSummary }) {
         {error && <p className="text-sm text-red-600">{error}</p>}
 
         {!isClosed && (
-          <form onSubmit={logPayout} className="flex gap-2 border-t border-neutral-100 pt-3">
+          <form onSubmit={logPayout} className="flex flex-wrap gap-2 border-t border-neutral-100 pt-3">
             <Input placeholder="What was paid out" value={payoutNote} onChange={(e) => setPayoutNote(e.target.value)} className="flex-1" />
             <Input type="number" min={1} placeholder="₹" value={payoutAmount} onChange={(e) => setPayoutAmount(e.target.value)} className="w-24" />
             <Button type="submit" variant="secondary" disabled={pending}>

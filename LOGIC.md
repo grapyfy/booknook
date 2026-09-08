@@ -376,3 +376,23 @@ Three levels of control, all via `ChannelInventoryMatrix.tsx` (client) → `setS
 Metasearch (Google Hotels) is excluded from the matrix — it doesn't take direct reservations the way an OTA does, so stop-sell doesn't apply the same way; `OTA_PARTNER_NAMES` filters `CHANNEL_PARTNERS` down to `type === "OTA"` for exactly this reason.
 
 Deliberately not built: per-channel Min/Max LOS or Closed-on-Arrival/Departure restrictions (the matrix covers the core "stop accepting bookings" ask; rate-plan-level restrictions would be a reasonable next increment if actually needed, not built speculatively here).
+
+---
+
+## Mobile responsiveness pass (2026-09-09)
+
+`AppShell.tsx` is now the one place responsive nav behavior lives:
+- **≥768px (`md`)**: the original fixed `w-56` sidebar, always visible, unchanged behavior.
+- **<768px**: the sidebar is not rendered in normal flow at all (`hidden md:flex`). A hamburger button appears in the header (`aria-label="Open menu"`) that sets `mobileNavOpen`, rendering a fixed-position slide-over drawer (`w-64 max-w-[80vw]`) with a dark backdrop; clicking the backdrop, the drawer's own close (✕) button, or any nav link closes it. Both the desktop sidebar and the mobile drawer render from the same `navContent` JSX — there's exactly one nav definition, so they can never drift out of sync with each other.
+- The header's `OnlineStatusBadge` drops its text label (icon-only) below `sm` (640px) purely to save horizontal space next to the hamburger + search + bell + logout.
+
+Grid/layout breakpoint convention used throughout (matches Tailwind defaults, no custom breakpoints added): stat-tile and card grids go `grid-cols-1` (or `grid-cols-2` for 4-up icon tiles) at the base, step up through `sm:`/`lg:` to their original desktop column count. Two-column form field grids (`NewBookingForm`, `WalkInBookingForm`, `GroupBookingForm`, `MaintenanceTicketForm`, payment/cash-register panels) go `grid-cols-1 sm:grid-cols-2`. The dashboard's revenue-chart+room-status row and recent-bookings+quick-actions row (both `col-span-2` layouts) go `grid-cols-1 lg:grid-cols-3` with `lg:col-span-2` on the wide side, so they stack fully on mobile/tablet and only split at desktop width.
+
+Existing `overflow-x-auto` table wrappers (calendar grid, channel inventory matrix, halls grid, most list-page tables) were intentionally left alone — a wide data table getting its own horizontal scroll container, while the page itself doesn't scroll sideways, is the correct pattern per `RULES.md`'s mobile rule, not something to "fix" into a stacked layout that would lose the grid's meaning.
+
+Three real (not hypothetical) overflow bugs found only by measuring `scrollWidth` in a headless browser at 375px, not by eyeballing:
+- `CalendarGrid.tsx`'s toolbar row (search + status filter + a long helper-text string) was a non-wrapping `flex` row wider than the viewport — now `flex flex-wrap`.
+- `MaintenanceTicketCard.tsx`'s technician-select + action-buttons footer row — same fix.
+- `CashRegisterPanel.tsx`'s "log a paid-out" form (label input + amount input + button) — same fix.
+
+`/login` was not touched — it renders fine at any width; its only failure mode (crashing without real Supabase env vars) is pre-existing and identical on desktop, documented in `CLAUDE.md`.

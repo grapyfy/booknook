@@ -71,7 +71,7 @@ export default function ReportsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">Reports</h1>
           <p className="text-sm text-neutral-500">Occupancy, rate, and revenue — last 7 days.</p>
@@ -94,7 +94,7 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-lg border border-neutral-200 bg-white p-5">
           <div className="text-sm text-neutral-500">Occupancy</div>
           <div className="text-2xl font-semibold font-mono">{stats.occupancyRate}%</div>

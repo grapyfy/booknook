@@ -30,7 +30,7 @@ export function OnlineStatusBadge() {
       title={online ? "Online — changes save immediately" : "Offline — changes will sync when back online"}
     >
       <FontAwesomeIcon icon={faWifi} className="h-3 w-3" />
-      {online ? "Online" : "Offline"}
+      <span className="hidden sm:inline">{online ? "Online" : "Offline"}</span>
     </span>
   );
 }

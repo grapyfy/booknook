@@ -35,7 +35,7 @@ export function TopbarSearch() {
   }
 
   return (
-    <div ref={containerRef} className="relative flex-1 max-w-md">
+    <div ref={containerRef} className="relative flex-1 min-w-0 max-w-md">
       <FontAwesomeIcon icon={faMagnifyingGlass} className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-400" />
       <input
         value={query}

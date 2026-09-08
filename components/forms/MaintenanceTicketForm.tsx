@@ -54,7 +54,7 @@ export function MaintenanceTicketForm({ rooms }: { rooms: Room[] }) {
         </Select>
       </FormField>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <FormField label="Category" htmlFor="category">
           <Select id="category" value={category} onChange={(e) => setCategory(e.target.value as MaintenanceCategory)}>
             {Object.entries(CATEGORY_LABELS).map(([value, label]) => (

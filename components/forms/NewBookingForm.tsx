@@ -129,7 +129,7 @@ export function NewBookingForm({ rooms }: { rooms: Room[] }) {
         <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
       </FormField>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <FormField label="ID type (KYC, optional)" htmlFor="idType">
           <Select id="idType" value={idType} onChange={(e) => setIdType(e.target.value as Guest["idType"] | "")}>
             <option value="">Not captured</option>
@@ -151,7 +151,7 @@ export function NewBookingForm({ rooms }: { rooms: Room[] }) {
         </FormField>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <FormField label="Check-in" htmlFor="checkIn">
           <Input id="checkIn" type="date" required value={checkIn} onChange={(e) => setCheckIn(e.target.value)} />
         </FormField>
@@ -173,7 +173,7 @@ export function NewBookingForm({ rooms }: { rooms: Room[] }) {
           Everything here is a proposal the server re-derives the amount from,
           never a final total accepted as-is (see createBookingMock). */}
       <div className="rounded-lg border border-neutral-200 p-4 flex flex-col gap-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <span className="text-sm font-medium text-neutral-700">Pricing</span>
           <button
             type="button"

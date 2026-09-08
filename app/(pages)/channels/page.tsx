@@ -19,7 +19,7 @@ export default function ChannelsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">Channels & integrations</h1>
           <p className="text-sm text-neutral-500">Which OTA partners BookNook is built to support.</p>
@@ -33,10 +33,10 @@ export default function ChannelsPage() {
         connection exists yet.
       </IllustrativeBanner>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {CHANNEL_PARTNERS.map((p) => (
           <div key={p.name} className="rounded-lg border border-neutral-200 bg-white p-4 flex flex-col gap-2">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <span className="font-medium">{p.name}</span>
               <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-500">{p.type}</span>
             </div>

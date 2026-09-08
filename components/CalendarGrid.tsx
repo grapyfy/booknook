@@ -121,7 +121,7 @@ export function CalendarGrid({ rooms, bookings, days }: { rooms: Room[]; booking
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex gap-3 items-center">
+      <div className="flex flex-wrap gap-3 items-center">
         <div className="relative max-w-xs">
           <FontAwesomeIcon icon={faMagnifyingGlass} className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-400" />
           <Input placeholder="Search guest name..." value={query} onChange={(e) => setQuery(e.target.value)} className="pl-9" />

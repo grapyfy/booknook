@@ -29,7 +29,7 @@ export default function ReviewsPage() {
         guests; shown purely to illustrate the layout a real feed would fill.
       </IllustrativeBanner>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="rounded-lg border border-neutral-200 bg-white p-5">
           <div className="text-sm text-neutral-500">Average rating</div>
           <div className="text-2xl font-semibold font-mono flex items-center gap-1.5">
@@ -50,7 +50,7 @@ export default function ReviewsPage() {
       <div className="flex flex-col gap-3">
         {SAMPLE_REVIEWS.map((r, i) => (
           <div key={i} className="rounded-lg border border-neutral-200 bg-white p-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-0.5">
                 {Array.from({ length: 5 }).map((_, star) => (
                   <FontAwesomeIcon

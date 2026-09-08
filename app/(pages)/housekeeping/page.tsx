@@ -26,7 +26,7 @@ export default function HousekeepingPage() {
         <p className="text-sm text-neutral-500">Today&apos;s room-cleaning status, room by room.</p>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((s) => (
           <div key={s.label} className="rounded-lg border border-neutral-200 bg-white p-4 flex items-center gap-3">
             <div className={`h-9 w-9 rounded-full flex items-center justify-center ${s.color}`}>

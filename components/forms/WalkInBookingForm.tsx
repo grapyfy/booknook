@@ -73,7 +73,7 @@ export function WalkInBookingForm({ rooms }: { rooms: Room[] }) {
           onChange={(e) => setPhone(e.target.value)}
         />
       </FormField>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <FormField label="Check-in" htmlFor="checkIn">
           <Input id="checkIn" type="date" required value={checkIn} onChange={(e) => setCheckIn(e.target.value)} />
         </FormField>

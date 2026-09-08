@@ -24,7 +24,7 @@ export default function VendorsPage() {
         is linked to real expenses.
       </IllustrativeBanner>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="rounded-lg border border-neutral-200 bg-white p-5">
           <div className="text-sm text-neutral-500">Vendors</div>
           <div className="text-2xl font-semibold font-mono">{MOCK_VENDORS.length}</div>
