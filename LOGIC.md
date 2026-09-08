@@ -292,3 +292,37 @@ New mock domain (`components/lib/maintenanceMock.ts`), file-persisted to `.mock-
 - Status-filter pills at the top (`?status=`) — same search-param pattern as the bookings list filter.
 
 Both modules share `constants/staff.ts` (`MOCK_STAFF`) — extracted from what was previously an inline array on the Users & roles page, so "assign to" dropdowns everywhere pick from the same sample names instead of three screens inventing three different fake staff lists.
+
+---
+
+## Billing / Payments depth (2026-09-08, phase 3) — `/bookings/[id]/folio`, `/cash-register`, `/reports`
+
+Contract addition (flagged, additive): `Folio` gained `voided?: boolean` and `voidReason?: string`. Two new mock domains: `components/lib/paymentsMock.ts` (payments + credit notes) and `components/lib/cashRegisterMock.ts` (daily cash drawer).
+
+**Not a payment gateway integration.** Recording a payment means "front desk noted that money was received" — normal internal bookkeeping, exactly like a paper register — it never touches a real Razorpay account. The "Pay via UPI" button on the folio page stays a disabled stub, per CLAUDE.md's BYOG rule (no pooled payments, no live gateway wiring here).
+
+### Payments (`paymentsMock.ts`)
+- `PaymentRecord {bookingId, method: cash|upi|card|bank_transfer, type: advance|partial|full|refund, amount, note?, recordedAt}` — a booking can have any number of these.
+- **Balance is always derived, never stored**: `computeBookingBalanceMock(bookingId, totalDue)` = `totalDue - sum(non-refund payments) + sum(refunds)`. Shown on the folio as a colored pill: red "₹X due", blue "₹X credit" (overpaid/refunded past zero), green "Paid in full".
+- **Record payment** — method + type + amount + optional note, via `recordPaymentAction`. Amount input defaults to the current balance due (convenience, not a constraint — any amount can be entered).
+- **Refund** — method + amount + a *required* reason. `refundBookingAction` does two things in one step: records a `type: "refund"` payment AND calls `issueCreditNoteMock` — a refund against an already-invoiced GST bill legally needs a credit note in India (you can't just shrink an issued invoice), so both happen together rather than leaving the second step to be forgotten.
+
+### Void invoice
+- "Void this invoice" (folio page) prompts for a required reason, calls `voidFolioAction` → `voidFolioMock`, which sets `voided: true` on the *current* folio record (kept in `store.folios` for audit history, never deleted).
+- `generateFolioMock`'s idempotent check now explicitly excludes voided folios (`!f.voided`) — so the next time the folio page loads, a **new** folio is generated automatically (new sequential invoice number), and the page shows an amber banner listing every voided invoice number + reason for that booking. This is the "correct and reissue" flow: void the wrong one, a right one appears on next load, nothing needs manual regeneration.
+- A voided folio's GST figures still count toward nothing — `listFoliosMock()` (used by GSTR-1 export and reports) is filtered to `!f.voided` wherever it represents current outward-supply obligations.
+
+### GSTR-1 export (`/reports`) — **real v1-locked feature**, not a stub
+CLAUDE.md's v1 scope explicitly includes "GSTR-1 export" (unlike e-invoice/IRN, which stays excluded). Built as a CSV of every active (non-voided) folio ever generated: invoice number, date, SAC code, taxable value, CGST, SGST, IGST, GST rate, total invoice value — the standard fields a GSTR-1 filing needs per outward supply. Reuses the same real `ExportCsvButton` as the bookings CSV export.
+
+### Outstanding / Payments due (`/reports`)
+A 4th stat tile ("Outstanding") + a "Payments due" list — for every non-cancelled booking, computes the same room-total-incl-GST + service-charges total the folio page would show, calls `computeBookingBalanceMock`, and lists every booking with `balance > 0`, sorted highest-first. Real numbers from real recorded payments, not estimates.
+
+### Cash register (`/cash-register`)
+One entry per calendar day (`CashRegisterDay`). **"Cash received today" is computed, not entered** — `cashReceivedForDate()` sums today's `method: "cash"` payments minus today's cash refunds, straight from the real `paymentsMock` records. Front desk manually enters/edits only the **opening balance** (defaults to the previous closed day's actual counted closing balance — real drawer continuity) and logs **cash paid out** (petty expenses, cash refunds handled outside a booking) with a required note.
+- **Expected closing balance** = opening + cash received − cash paid out (always computed).
+- **Close register** — staff counts the physical drawer and enters the actual amount; **variance** = actual − expected, shown green if zero, red otherwise. Once closed, a day's opening/paid-out entries can no longer be edited (`setOpeningBalanceMock`/`addCashPaidOutMock` both throw if `closedAt` is set).
+- History table below shows every previously closed day.
+
+### What was deliberately not built this phase
+Multi-guest bill-splitting (each guest on a booking paying their own separate share — "split billing" here instead means *multiple payment method rows on one bill*, which is what got built). OTA payout / payment-gateway / bank reconciliation (no real OTA or gateway data exists in this mock to reconcile against — building UI for it would mean fabricating numbers). Auto-settlement. Company/credit billing for corporate accounts (that's the Corporate/Travel-agent module, a separate future phase). None of these were silently skipped — flagging them here so nobody assumes they exist.

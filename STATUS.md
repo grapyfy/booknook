@@ -159,3 +159,25 @@ Two new modules, both new mock domains rather than changes to `types/room.ts` �
 Verified with a real headless-browser pass: housekeeping status advance + staff assignment, maintenance technician assignment (confirmed the auto-transition to "assigned"), and full new-ticket creation end to end. Zero console errors. Reset both new mock-store files afterward.
 
 **Not yet built** (remaining phases): Billing/Payments depth (split billing, reconciliation, cash register), Reports depth + custom report builder, remaining stubs (Marketing, Corporate/Travel-agent, Vendor, Reviews, etc).
+
+## 2026-09-08 — Teammate (part 9) — Billing/Payments depth (phase 3)
+
+Phase 3 of the priority-ordered build. Still on `feature/dashboard-ui`, backend untouched.
+
+Two new mock domains (`components/lib/paymentsMock.ts`, `cashRegisterMock.ts`) plus one contract addition (flagged, additive): `Folio` gained `voided`/`voidReason`.
+
+**Not a payment gateway integration** — recording a payment is front-desk bookkeeping (money was received, note it down), never a real Razorpay call. The BYOG "Pay via UPI" button stays a disabled stub, unchanged.
+
+**Built, real:**
+- Payment recording against any booking (cash/UPI/card/bank transfer, advance/partial/full), with a derived (never stored) balance shown as a colored pill on the folio.
+- Refunds — recording a refund also auto-issues a credit note in the same action (legally required alongside a GST invoice reduction in India, so it's not a step someone could forget).
+- Void invoice — voiding lets the next page load auto-generate a fresh, correctly-numbered invoice; the voided one stays visible as audit history with its reason.
+- **GSTR-1 CSV export** on Reports — this is explicitly *in* CLAUDE.md's locked v1 scope (unlike e-invoice/IRN, which stays excluded), so it's real functionality, not a stub: every active (non-voided) invoice's SAC code, taxable value, CGST/SGST, total.
+- Outstanding-balance stat + a "Payments due" list on Reports, computed from real recorded payments across every non-cancelled booking.
+- Cash register (`/cash-register`) — one entry per day, "cash received" computed for real from that day's actual cash payments (not entered manually), opening-balance continuity from the prior closed day, cash-paid-out logging, and a close-register flow with a real actual-vs-expected variance.
+
+**Deliberately not built** (flagged, not silently skipped): multi-guest bill-splitting (a booking's total split across several guests each paying separately — what got built instead is multiple payment *methods* on one bill), OTA/gateway/bank reconciliation (no real OTA or gateway data exists to reconcile against), auto-settlement, corporate/credit billing (belongs to the future Corporate/Travel-agent phase).
+
+Verified with a real headless-browser pass: recorded a payment to clear a partial balance to "Paid in full," voided that invoice with a reason and confirmed a new invoice number was issued automatically, processed a partial refund on a different booking and confirmed both the balance and the auto-issued credit note appeared, confirmed the cash register's "cash received" figure exactly matched the net of the real payments/refund just recorded (seed ₹9,000 + payment ₹12,240 − refund ₹1,000 = ₹20,240, matched exactly), and confirmed Reports shows both the Outstanding total and the GSTR-1 export. Zero console errors. Reset all mock-store files afterward.
+
+**Remaining phase**: the rest of the original 39-module stub list (Marketing/CRM, Corporate & Travel Agent accounts, Vendor management, Reviews & reputation, etc).

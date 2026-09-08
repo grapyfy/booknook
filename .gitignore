@@ -9,7 +9,10 @@ node_modules/
 next-env.d.ts
 
 # Generated mock-data store for local UI preview (components/lib/mockData.ts,
-# housekeepingMock.ts, maintenanceMock.ts) — runtime state, not source data.
+# housekeepingMock.ts, maintenanceMock.ts, paymentsMock.ts, cashRegisterMock.ts)
+# — runtime state, not source data.
 .mock-store.json
 .mock-store-housekeeping.json
 .mock-store-maintenance.json
+.mock-store-payments.json
+.mock-store-cash-register.json

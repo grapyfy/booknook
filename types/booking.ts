@@ -58,6 +58,9 @@ export interface Folio {
   igst: number;
   totalAmount: number;
   createdAt: string;
+  // Billing-depth additions (2026-09-08) — additive/optional.
+  voided?: boolean; // an invoice that was cancelled/superseded — excluded from GSTR-1 export, kept in history for audit
+  voidReason?: string;
 }
 
 // Example data for the UI to build against before the real API exists.

@@ -1,12 +1,52 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faFileCsv, faEnvelope } from "@fortawesome/free-solid-svg-icons";
-import { getDashboardStatsMock, listBookingsMock } from "@/components/lib/mockData";
+import { faFileCsv, faEnvelope, faReceipt } from "@fortawesome/free-solid-svg-icons";
+import { getDashboardStatsMock, listBookingsMock, listFoliosMock } from "@/components/lib/mockData";
+import { computeBookingBalanceMock } from "@/components/lib/paymentsMock";
 import { Button } from "@/components/ui/Button";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
+
+function nightsBetween(checkIn: string, checkOut: string): number {
+  return Math.max(1, Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000));
+}
 
 export default function ReportsPage() {
   const stats = getDashboardStatsMock();
   const bookings = listBookingsMock();
+
+  // Outstanding balance across every non-cancelled booking — the folio total
+  // (room + GST) is the same total the folio page bills against, so this is
+  // the same real balance a front-desk person would see per booking, summed.
+  const outstandingBookings = bookings
+    .filter((b) => b.status !== "cancelled")
+    .map((b) => {
+      const nights = nightsBetween(b.checkIn, b.checkOut);
+      const serviceTotal = (b.extraServices ?? []).reduce((sum, s) => sum + s.amount, 0);
+      // Same 12%/18% slab math as generateFolioMock, without persisting a folio.
+      const gstRate = b.amount / nights > 7500 ? 18 : 12;
+      const roomTotalInclGst = Math.round(b.amount * (1 + gstRate / 100));
+      const totalDue = roomTotalInclGst + serviceTotal;
+      const balance = computeBookingBalanceMock(b.id, totalDue);
+      return { booking: b, balance: balance.balance };
+    })
+    .filter((row) => row.balance > 0)
+    .sort((a, b) => b.balance - a.balance);
+  const totalOutstanding = outstandingBookings.reduce((sum, r) => sum + r.balance, 0);
+
+  // GSTR-1-style export: every active (non-voided) invoice generated so far.
+  // Voided invoices are correctly excluded — they were superseded, so they'd
+  // double-count outward supply if included.
+  const activeFolios = listFoliosMock().filter((f) => !f.voided);
+  const gstr1Rows = activeFolios.map((f) => ({
+    invoiceNumber: f.invoiceNumber,
+    invoiceDate: f.createdAt.slice(0, 10),
+    sacCode: f.sacCode,
+    taxableValue: f.baseAmount,
+    cgst: f.cgst,
+    sgst: f.sgst,
+    igst: f.igst,
+    gstRate: f.gstRate,
+    totalInvoiceValue: f.totalAmount,
+  }));
 
   // Revenue by room type — an honest substitute for an OTA-vs-direct channel
   // split, since Booking doesn't carry a "source" field yet (see LOGIC.md).
@@ -54,7 +94,7 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         <div className="rounded-lg border border-neutral-200 bg-white p-5">
           <div className="text-sm text-neutral-500">Occupancy</div>
           <div className="text-2xl font-semibold font-mono">{stats.occupancyRate}%</div>
@@ -67,7 +107,29 @@ export default function ReportsPage() {
           <div className="text-sm text-neutral-500">RevPAR</div>
           <div className="text-2xl font-semibold font-mono">₹{stats.revPAR.toLocaleString("en-IN")}</div>
         </div>
+        <div className="rounded-lg border border-neutral-200 bg-white p-5">
+          <div className="text-sm text-neutral-500">Outstanding</div>
+          <div className={`text-2xl font-semibold font-mono ${totalOutstanding > 0 ? "text-red-600" : ""}`}>
+            ₹{totalOutstanding.toLocaleString("en-IN")}
+          </div>
+        </div>
       </div>
+
+      {outstandingBookings.length > 0 && (
+        <div className="rounded-lg border border-neutral-200 bg-white p-5">
+          <h2 className="text-sm font-medium mb-4">Payments due</h2>
+          <div className="flex flex-col gap-2 text-sm">
+            {outstandingBookings.map(({ booking, balance }) => (
+              <div key={booking.id} className="flex justify-between">
+                <span>
+                  {booking.guest.name} <span className="text-neutral-400 font-mono text-xs">Room {booking.roomNumber}</span>
+                </span>
+                <span className="font-mono text-red-600">₹{balance.toLocaleString("en-IN")}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="rounded-lg border border-neutral-200 bg-white p-5">
         <h2 className="text-sm font-medium mb-4">Revenue by room (non-cancelled bookings, all time)</h2>
@@ -83,6 +145,17 @@ export default function ReportsPage() {
           ))}
           {revenueByRoomType.size === 0 && <p className="text-sm text-neutral-400">No revenue yet.</p>}
         </div>
+      </div>
+
+      <div className="rounded-lg border border-neutral-200 bg-white p-5 flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-medium">GSTR-1 export</h2>
+          <p className="text-xs text-neutral-500 mt-1">
+            Every active (non-voided) invoice issued so far — invoice no., date, SAC code, taxable value, CGST/SGST, total.
+            {activeFolios.length} invoice{activeFolios.length === 1 ? "" : "s"}.
+          </p>
+        </div>
+        <ExportCsvButton filename="gstr1-export.csv" rows={gstr1Rows} label="Export GSTR-1 CSV" icon={faReceipt} />
       </div>
     </div>
   );

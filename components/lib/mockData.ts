@@ -500,7 +500,10 @@ export function generateFolioMock(bookingId: string): Folio {
   const booking = store.bookings.find((b) => b.id === bookingId);
   if (!booking) throw new Error("Booking not found");
 
-  const existing = store.folios.find((f) => f.bookingId === bookingId);
+  // Idempotent EXCEPT for a voided folio — a void means "this invoice was
+  // wrong, issue a new one," so a voided record no longer blocks regeneration.
+  // The voided one stays in `store.folios` for audit history either way.
+  const existing = store.folios.find((f) => f.bookingId === bookingId && !f.voided);
   if (existing) return existing; // idempotent — never double-bill
 
   // GST slab is based on the actual per-night value charged (the "declared
@@ -534,6 +537,22 @@ export function generateFolioMock(bookingId: string): Folio {
     createdAt: new Date().toISOString(),
   };
   store.folios.push(folio);
+  saveStore(store);
+  return folio;
+}
+
+// All folios ever generated, including voided ones — used for the GSTR-1
+// export (which explicitly excludes voided rows) and for audit history.
+export function listFoliosMock(): Folio[] {
+  return [...loadStore().folios].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
+export function voidFolioMock(bookingId: string, reason: string): Folio {
+  const store = loadStore();
+  const folio = store.folios.find((f) => f.bookingId === bookingId && !f.voided);
+  if (!folio) throw new Error("No active invoice to void for this booking");
+  folio.voided = true;
+  folio.voidReason = reason;
   saveStore(store);
   return folio;
 }
