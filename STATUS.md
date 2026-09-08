@@ -159,3 +159,14 @@ Two new modules, both new mock domains rather than changes to `types/room.ts` �
 Verified with a real headless-browser pass: housekeeping status advance + staff assignment, maintenance technician assignment (confirmed the auto-transition to "assigned"), and full new-ticket creation end to end. Zero console errors. Reset both new mock-store files afterward.
 
 **Not yet built** (remaining phases): Billing/Payments depth (split billing, reconciliation, cash register), Reports depth + custom report builder, remaining stubs (Marketing, Corporate/Travel-agent, Vendor, Reviews, etc).
+
+## 2026-09-08 — Abhay
+Merged `feature/dashboard-ui` into `main` — Gautam's UI work (all screens, verified in an earlier review, see Obsidian memory) is now on main alongside the backend.
+
+Extended the real backend to match everything Gautam built, including the screens beyond the original locked v1 scope (per explicit agreement: build real backends for all of it, not just the original 5). New Prisma models: `BookingGroup`, `ExtraService`, `Channel`, `Hall`/`HallEvent`, `HousekeepingTask`, `MaintenanceTicket`, `PropertySettings`; extended `Guest` (KYC fields) and `Booking` (waitlisted/no-show statuses, source, notes, group, payment status, discount, price note). New services: booking pricing control/reschedule/status-transitions/group-bookings/overbooking+no-show detection, guestService, customerService, reportsService (occupancy/ADR/RevPAR), channelService, hallService, housekeepingService, maintenanceService, settingsService, staffService extended. 20 new/updated API routes, all zod-validated. Full detail in the new `BACKEND_LOGIC.md` (mirrors `LOGIC.md`'s convention for the backend side).
+
+Type-checks clean, `npm run build` passes (25+ routes), no new `npm audit` findings.
+
+**Not yet done:** the actual database migration. Supabase project was paused (free-tier auto-pause) when this work happened — schema was written and Prisma Client generated entirely without a live DB connection (`prisma generate` doesn't need one, only `migrate dev`/runtime queries do). Whoever picks this up next: restore the Supabase project first, then `npx prisma migrate dev --name front_desk_depth_and_new_modules`, then verify end-to-end before trusting anything in `BACKEND_LOGIC.md` as actually live.
+
+One real correctness note carried over from Gautam's mock-layer work: GST slab should follow the rate actually charged per booking, not a room's live list rate. The real backend never had this bug (`Booking.roomRatePerNight` was always the per-booking stored rate) — confirmed correct, no fix needed, but worth knowing why it's right.

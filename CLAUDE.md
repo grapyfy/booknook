@@ -26,29 +26,27 @@ npm run dev   # http://localhost:3000
 
 ## Current build status (snapshot — keep this section updated, don't rely only on the dated log in STATUS.md for "what exists right now")
 
-**Backend — done and verified against a real database:**
-- Login + roles (`OWNER`, `FRONT_DESK` enforced; 4 more PRD roles reserved in the schema, unused) — `app/login/`, `middleware.ts`
-- Bookings — create/list, real room-rate lookup, never trusts a client-sent amount — `app/api/bookings/`
-- Rooms — create/list, real rates (nothing hardcoded) — `app/api/rooms/`
-- GST billing (Folio) — 12%/18% slab by room rate, CGST+SGST (intra-state assumed for v1), SAC 996311, idempotent — `app/api/bookings/[id]/folio/`
-- Excel/CSV import with "Nothing Lost" report — flexible headers, mixed date formats, auto-creates unknown rooms only if a rate is given — `app/api/import/bookings/`
+`feature/dashboard-ui` is merged to `main` (2026-09-08). UI (all screens) is real against mock data; backend has been extended to cover the same ground for real. **Full detail: `LOGIC.md` (UI, every button/computed number) and `BACKEND_LOGIC.md` (backend, every service/endpoint) — this section is only a summary, don't treat it as the source of truth for exact behavior.**
 
-**UI — built on `feature/dashboard-ui` (2026-09-08, not yet merged to `main`, pushed to origin):** all 5 v1 screens below are done against mock data (login restyle, bookings list/calendar/new-booking form, room management, GST folio, CSV import), plus a dashboard home with a Minimal/Detailed toggle, booking lifecycle actions (check-in/out/cancel/no-show/waitlist-confirm), guest profiles + digital KYC, a Gantt-style calendar (drag-and-drop reschedule, day/week/month views, overbooking + possible-no-show detection), walk-in + group bookings, and full front-desk pricing control (rate override/discount/service charges, payment status) wired straight into invoice generation. **This snapshot only summarizes — for exact behavior read `LOGIC.md` (every button/link/computed number), the dated build log in `STATUS.md`, and the design system in `context.md`.**
+**Backend — schema written, code type-checks and builds clean, migration NOT YET APPLIED** (Supabase project was paused when this was written — free-tier auto-pause after ~1 week idle; restore it, then run `npx prisma migrate dev`, before assuming any of this exists in the real database):
+- Login + roles — `OWNER`/`FRONT_DESK` enforced, `HOUSEKEEPING_SUPERVISOR`/`HOUSEKEEPING_STAFF` now real too (Housekeeping module built), `ACCOUNTANT` still reserved
+- Bookings — full front-desk depth: pricing control (rate override/discount/service charges), reschedule (extend/shorten/move room), status lifecycle (confirmed/checked-in/checked-out/cancelled/waitlisted/no-show, transitions enforced), group bookings (all-or-nothing transaction), overbooking + possible-no-show detection
+- GST billing (Folio) — unchanged, already correct (keys off the per-booking rate actually charged, not a live room-rate lookup — the real backend never had the bug the mock layer had to fix)
+- Rooms, Excel/CSV import — unchanged from before this pass
+- Guests & Customers — guest history by phone, aggregated customer directory with search
+- Reports — real occupancy/ADR/RevPAR, CSV export
+- Channels — real CRUD; `status` is a manual outreach flag, **not** a live OTA sync (see "OTA integration" below)
+- Halls & Events — real CRUD with time-overlap conflict checking
+- Settings — real property-details singleton
+- Housekeeping — real 4-stage task board (one task per active room per day, DB-enforced), staff assignment
+- Maintenance — real ticket workflow, technician assignment, resolve requires a real repair cost
 
-**Also built, deliberately exceeding this doc's locked v1 scope below** — an explicit, flagged decision made with the teammate mid-build, not a unilateral scope change (see `STATUS.md`'s part-4 entry): Channels/OTA, Users & roles, Halls & events, and some Settings tabs, all as honest UI-only stubs (visibly labeled in-app), never wired to a real OTA sync or message send. Housekeeping (`/housekeeping`) and Maintenance (`/maintenance`) are new, fully real (not stubs) modules on top of new mock domains — not in the original 5-screen list above and not in the locked scope below either, but genuinely functional (real status workflows, not decorative). Whoever reviews this branch should know all of this going in.
+**Not built:** offline check-in/sync queue, any real WhatsApp send (deferred, per this doc's "never wire a live send" rule). Extra services/discounts don't flow into the GST folio's tax calc yet (deferred, flagged in `BACKEND_LOGIC.md`, not silently skipped).
 
-**Still not built:** offline check-in/sync queue, and any real WhatsApp send (the folio screen has an inert preview only, per this doc's "never wire a live send" rule below). Service charges captured on a booking don't flow into the GST folio yet (shown for reference only) — real billing-line-item integration is deferred, not skipped silently.
+**Scope note:** Channels/Users/Halls/Settings (as UI stubs) and Housekeeping/Maintenance (as real modules) all exceed this doc's "locked v1 scope" below — an explicit decision made between Abhay and the teammate (Gautam), not a unilateral expansion. The locked-scope section hasn't been rewritten to match yet; treat the bullet list above as more current than the "v1 scope — locked" section for "what are we actually building."
 
-## What the UI needs to build (teammate's call on exact order/design — this is what exists to build against)
-
-Screens with a real, working API already behind them — **status: all 5 built, see the snapshot above and `LOGIC.md` for exact behavior:**
-1. **Login** — exists (`app/login/page.tsx`) but bare-bones; restyle freely, the auth logic underneath is solid
-2. **Booking calendar/list + "new booking" form** — `types/booking.ts`'s `Booking`/`Guest` contract, `GET`/`POST /api/bookings`
-3. **Room management** (add a room, see rates) — `types/room.ts`'s `Room` contract, `GET`/`POST /api/rooms`
-4. **Folio/invoice view** (show the GST bill for a booking) — `types/booking.ts`'s `Folio` contract, `GET`/`POST /api/bookings/:id/folio`
-5. **CSV import screen** (upload a file, show the "Nothing Lost" report) — `POST /api/import/bookings`, multipart `file` field, returns `{totalRows, imported[], flagged[], roomsCreated[]}`
-
-Build against mock data first (already in `types/`), swap to the real fetch calls once ready — that's the contract workflow below. (Done for all 5 above, still against mock data — swapping to real `fetch()` calls is the next real step once backend + UI are ready to plug together.)
+## What's next
+Once the database migration is applied (see above) and verified end-to-end, the real step is swapping the UI's mock-data calls (`components/lib/mockData.ts` and friends) for real `fetch()` calls against the endpoints in `BACKEND_LOGIC.md` — the contract workflow below was designed for exactly this handoff.
 
 ## v1 scope — locked
 **Build:** front desk (calendar, walk-in, guest profile, digital KYC), GST folio + billing + GSTR-1 export, UPI payments (BYOG model — see below), WhatsApp booking confirmation + missed-call recovery, Excel/CSV importer with "Nothing Lost" report, offline check-in with a sync queue.

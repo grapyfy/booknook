@@ -14,10 +14,23 @@ const createBookingSchema = z.object({
     name: z.string().min(1).max(120),
     phone: z.string().regex(/^\+?[0-9]{10,15}$/, "Invalid phone number"),
     email: z.string().email().optional(),
+    idType: z.enum(["aadhaar", "passport", "driving_license", "voter_id", "other"]).optional(),
+    idNumber: z.string().max(60).optional(),
   }),
   checkIn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD"),
   checkOut: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD"),
   roomNumber: z.string().min(1).max(20),
+  source: z.enum(["direct", "walk-in", "phone", "other"]).optional(),
+  notes: z.string().max(2000).optional(),
+  initialStatus: z.enum(["confirmed", "checked-in", "waitlisted"]).optional(),
+  // Pricing control — validated for shape/range here; createBooking still independently
+  // clamps and recomputes `amount` server-side, this isn't the only guard.
+  rateOverride: z.number().positive().max(1_000_000).optional(),
+  discountAmount: z.number().min(0).max(1_000_000).optional(),
+  extraServices: z.array(z.object({ name: z.string().min(1).max(120), amount: z.number().min(0).max(1_000_000) })).optional(),
+  paymentStatus: z.enum(["prepaid", "postpaid", "partial"]).optional(),
+  priceNote: z.string().max(500).optional(),
+  groupId: z.string().uuid().optional(),
 });
 
 export async function POST(req: NextRequest) {
