@@ -1,0 +1,231 @@
+"use server";
+
+// Server Actions the UI forms call directly. Validation here mirrors the real
+// app/api/bookings & app/api/rooms zod schemas exactly, so swapping these bodies
+// for real fetch() calls later is close to a one-line change per call site.
+import { z } from "zod";
+import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+import {
+  createBookingMock,
+  createRoomMock,
+  generateFolioMock,
+  importCsvMock,
+  updateBookingStatusMock,
+  listBookingsMock,
+  listRoomsMock,
+  rescheduleBookingMock,
+  createGroupBookingMock,
+} from "@/components/lib/mockData";
+import type { ImportReport } from "@/components/lib/mockData";
+import type { Booking } from "@/types/booking";
+
+type ActionResult = { ok: true } | { ok: false; error: string };
+
+const createBookingSchema = z.object({
+  guest: z.object({
+    name: z.string().min(1).max(120),
+    phone: z.string().regex(/^\+?[0-9]{10,15}$/, "Invalid phone number"),
+    email: z.string().email().optional().or(z.literal("")),
+    idType: z.enum(["aadhaar", "passport", "driving_license", "voter_id", "other"]).optional(),
+    idNumber: z.string().max(50).optional().or(z.literal("")),
+  }),
+  checkIn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD"),
+  checkOut: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD"),
+  roomNumber: z.string().min(1).max(20),
+  notes: z.string().max(500).optional().or(z.literal("")),
+});
+
+export async function createBookingAction(input: {
+  guest: { name: string; phone: string; email?: string; idType?: string; idNumber?: string };
+  checkIn: string;
+  checkOut: string;
+  roomNumber: string;
+  notes?: string;
+}): Promise<ActionResult> {
+  const parsed = createBookingSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid booking details" };
+  }
+  try {
+    createBookingMock({
+      ...parsed.data,
+      guest: {
+        ...parsed.data.guest,
+        email: parsed.data.guest.email || undefined,
+        idNumber: parsed.data.guest.idNumber || undefined,
+      },
+      notes: parsed.data.notes || undefined,
+      source: "direct",
+    });
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not create booking" };
+  }
+  redirect("/bookings");
+}
+
+const createWalkInSchema = createBookingSchema;
+
+export async function createWalkInBookingAction(input: {
+  guest: { name: string; phone: string; email?: string; idType?: string; idNumber?: string };
+  checkIn: string;
+  checkOut: string;
+  roomNumber: string;
+  notes?: string;
+}): Promise<ActionResult> {
+  const parsed = createWalkInSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid booking details" };
+  }
+  try {
+    createBookingMock({
+      ...parsed.data,
+      guest: {
+        ...parsed.data.guest,
+        email: parsed.data.guest.email || undefined,
+        idNumber: parsed.data.guest.idNumber || undefined,
+      },
+      notes: parsed.data.notes || undefined,
+      source: "walk-in",
+      initialStatus: "checked-in",
+    });
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not create walk-in booking" };
+  }
+  redirect("/bookings");
+}
+
+const createGroupBookingSchema = z.object({
+  groupName: z.string().min(1).max(120),
+  contact: z.object({
+    name: z.string().min(1).max(120),
+    phone: z.string().regex(/^\+?[0-9]{10,15}$/, "Invalid phone number"),
+    email: z.string().email().optional().or(z.literal("")),
+  }),
+  rooms: z
+    .array(
+      z.object({
+        roomNumber: z.string().min(1).max(20),
+        checkIn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD"),
+        checkOut: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD"),
+      })
+    )
+    .min(2, "A group booking needs at least 2 rooms"),
+});
+
+export async function createGroupBookingAction(input: {
+  groupName: string;
+  contact: { name: string; phone: string; email?: string };
+  rooms: { roomNumber: string; checkIn: string; checkOut: string }[];
+}): Promise<ActionResult> {
+  const parsed = createGroupBookingSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid group booking details" };
+  }
+  try {
+    createGroupBookingMock({
+      ...parsed.data,
+      contact: { ...parsed.data.contact, email: parsed.data.contact.email || undefined },
+    });
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not create group booking" };
+  }
+  redirect("/bookings/groups");
+}
+
+export async function rescheduleBookingAction(
+  id: string,
+  updates: { roomNumber?: string; checkIn?: string; checkOut?: string }
+): Promise<ActionResult> {
+  try {
+    rescheduleBookingMock(id, updates);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not reschedule booking" };
+  }
+  revalidatePath("/bookings");
+  revalidatePath("/bookings/calendar");
+  revalidatePath("/bookings/groups");
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+const createRoomSchema = z.object({
+  roomNumber: z.string().min(1).max(20),
+  roomType: z.string().min(1).max(60),
+  ratePerNight: z.number().int().positive().max(1000000),
+});
+
+export async function createRoomAction(input: {
+  roomNumber: string;
+  roomType: string;
+  ratePerNight: number;
+}): Promise<ActionResult> {
+  const parsed = createRoomSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid room details" };
+  }
+  try {
+    createRoomMock(parsed.data);
+  } catch {
+    return { ok: false, error: "Room number already exists" };
+  }
+  redirect("/rooms");
+}
+
+export async function updateBookingStatusAction(id: string, nextStatus: Booking["status"]): Promise<ActionResult> {
+  try {
+    updateBookingStatusMock(id, nextStatus);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not update booking" };
+  }
+  revalidatePath("/bookings");
+  revalidatePath("/bookings/calendar");
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+export async function generateFolioAction(bookingId: string) {
+  return generateFolioMock(bookingId);
+}
+
+export async function importCsvAction(csvText: string): Promise<ImportReport> {
+  return importCsvMock(csvText);
+}
+
+export interface SearchResult {
+  type: "booking" | "room";
+  label: string;
+  sublabel: string;
+  href: string;
+}
+
+// Powers the topbar search — a real, functional search over mock bookings and
+// rooms (not decoration). Called directly from AppShell (a client component)
+// as a Server Action, so no app/api/ route is needed for this (that folder is
+// Abhay's lane — see CLAUDE.md's team split).
+export async function searchMockAction(query: string): Promise<SearchResult[]> {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+
+  const bookingResults: SearchResult[] = listBookingsMock()
+    .filter((b) => b.guest.name.toLowerCase().includes(q) || b.guest.phone.includes(q) || b.roomNumber.includes(q))
+    .slice(0, 5)
+    .map((b) => ({
+      type: "booking",
+      label: b.guest.name,
+      sublabel: `Room ${b.roomNumber} · ${b.checkIn}`,
+      href: `/bookings/${b.id}/folio`,
+    }));
+
+  const roomResults: SearchResult[] = listRoomsMock()
+    .filter((r) => r.roomNumber.includes(q) || r.roomType.toLowerCase().includes(q))
+    .slice(0, 5)
+    .map((r) => ({
+      type: "room",
+      label: `Room ${r.roomNumber}`,
+      sublabel: r.roomType,
+      href: "/rooms",
+    }));
+
+  return [...bookingResults, ...roomResults].slice(0, 8);
+}

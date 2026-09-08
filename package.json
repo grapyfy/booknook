@@ -11,9 +11,14 @@
     "db:generate": "prisma generate"
   },
   "dependencies": {
+    "@fortawesome/fontawesome-svg-core": "^7.3.1",
+    "@fortawesome/free-brands-svg-icons": "^7.3.1",
+    "@fortawesome/free-solid-svg-icons": "^7.3.1",
+    "@fortawesome/react-fontawesome": "^3.5.0",
     "@prisma/client": "5.19.0",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.109.0",
+    "geist": "^1.7.2",
     "next": "^15.5.24",
     "papaparse": "^5.4.1",
     "react": "18.3.1",

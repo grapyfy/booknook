@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseClient } from "@/lib/supabase-client";
+import { Button } from "@/components/ui/Button";
+import { FormField, Input } from "@/components/ui/Input";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -29,33 +31,42 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-8">
-      <form onSubmit={handleSubmit} className="w-full max-w-sm flex flex-col gap-4">
-        <h1 className="text-xl font-semibold mb-2">BookNook — Login</h1>
-        <input
-          type="email"
-          required
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="border border-neutral-300 rounded-lg px-3 py-2"
-        />
-        <input
-          type="password"
-          required
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="border border-neutral-300 rounded-lg px-3 py-2"
-        />
+    <main className="flex min-h-screen items-center justify-center p-8 bg-neutral-50">
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-sm flex flex-col gap-4 rounded-lg border border-neutral-200 bg-white p-8"
+      >
+        <div className="mb-2 flex flex-col items-center text-center gap-2">
+          <span className="h-10 w-10 rounded-lg bg-blue-600 text-white flex items-center justify-center text-lg font-bold">
+            B
+          </span>
+          <h1 className="text-xl font-semibold">BookNook</h1>
+          <p className="text-sm text-neutral-500">Front desk login</p>
+        </div>
+        <FormField label="Email" htmlFor="email">
+          <Input
+            id="email"
+            type="email"
+            required
+            placeholder="you@hotel.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </FormField>
+        <FormField label="Password" htmlFor="password">
+          <Input
+            id="password"
+            type="password"
+            required
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </FormField>
         {error && <p className="text-sm text-red-600">{error}</p>}
-        <button
-          type="submit"
-          disabled={loading}
-          className="bg-neutral-900 text-white rounded-lg px-3 py-2 disabled:opacity-50"
-        >
+        <Button type="submit" disabled={loading} className="w-full">
           {loading ? "Logging in..." : "Login"}
-        </button>
+        </Button>
       </form>
     </main>
   );
