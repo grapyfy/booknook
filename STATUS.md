@@ -143,3 +143,19 @@ Added a "Pricing" section to the New Booking form: a List-rate/Custom-rate toggl
 **Booking creation now redirects straight into the generated invoice** (`/bookings/[id]/folio`) instead of back to the list — "create booking" and "generate invoice" are one flow now, per the ask. Folio page extended to show payment status, the actual rate charged, the discount line, the price note, and (when services exist) a second card with an itemized services list and a grand total — clearly labeled that service charges aren't run through GST in this invoice yet (real billing-logic work, a later phase).
 
 Verified with a real headless-browser pass: filled the pricing section end-to-end (custom rate ₹3,000/night, ₹500 discount, one ₹600 service, prepaid, a price note), confirmed the live estimate matched, submitted, confirmed it landed on the folio page with every field reflected correctly — including the GST slab correctly following the discounted per-night rate (₹2,750, still under the ₹7,500 threshold → 12%, not 18%). Zero console errors. Reset `.mock-store.json` afterward.
+
+## 2026-09-08 — Teammate (part 8) — Housekeeping + Maintenance (phase 2)
+
+Phase 2 of the priority-ordered build (agreed order: Front Desk depth, then Housekeeping + Maintenance, then Billing depth, then Reports depth, then remaining stubs). Still on `feature/dashboard-ui`, backend untouched.
+
+Two new modules, both new mock domains rather than changes to `types/room.ts` — a room's cleanliness/repair history is a sequence of tasks over time, not a static property, so `HousekeepingTask` and `MaintenanceTicket` live in their own files (`components/lib/housekeepingMock.ts`, `maintenanceMock.ts`), file-persisted the same way bookings are, loosely referencing a room number as a string rather than a hard contract relation. No `types/` contract change this round.
+
+**Housekeeping** (`/housekeeping`): a 4-column board (Dirty → Cleaning → Inspected → Ready), one task per active room per day, real fixed-transition enforcement (a room can't skip from dirty straight to ready), staff assignment from a shared mock staff list, priority + notes per task. Auto-reseeds with a fresh varied mix whenever the stored date isn't "today."
+
+**Maintenance** (`/maintenance`): ticket list with status-filter pills, a real create-ticket form (room/category/priority/description), and a real status workflow (open → assigned → in-progress → waiting/resolved → closed) — assigning a technician auto-advances an open ticket to assigned, resolving prompts for an actual repair cost.
+
+**Shared staff list extracted**: `constants/staff.ts` now holds `MOCK_STAFF` (previously a private array inline on the Users & roles page) — Housekeeping and Maintenance's "assign to" dropdowns pull from the same names instead of inventing separate fake staff per screen.
+
+Verified with a real headless-browser pass: housekeeping status advance + staff assignment, maintenance technician assignment (confirmed the auto-transition to "assigned"), and full new-ticket creation end to end. Zero console errors. Reset both new mock-store files afterward.
+
+**Not yet built** (remaining phases): Billing/Payments depth (split billing, reconciliation, cash register), Reports depth + custom report builder, remaining stubs (Marketing, Corporate/Travel-agent, Vendor, Reviews, etc).

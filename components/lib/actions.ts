@@ -19,6 +19,14 @@ import {
 } from "@/components/lib/mockData";
 import type { ImportReport } from "@/components/lib/mockData";
 import type { Booking } from "@/types/booking";
+import { advanceHousekeepingStatusMock, assignHousekeepingStaffMock } from "@/components/lib/housekeepingMock";
+import type { HousekeepingStatus } from "@/components/lib/housekeepingMock";
+import {
+  createMaintenanceTicketMock,
+  updateMaintenanceTicketStatusMock,
+  assignMaintenanceTechnicianMock,
+} from "@/components/lib/maintenanceMock";
+import type { MaintenanceStatus, MaintenanceTicket } from "@/components/lib/maintenanceMock";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -246,4 +254,78 @@ export async function searchMockAction(query: string): Promise<SearchResult[]> {
     }));
 
   return [...bookingResults, ...roomResults].slice(0, 8);
+}
+
+// ---- Housekeeping ----
+
+export async function advanceHousekeepingStatusAction(id: string, next: HousekeepingStatus): Promise<ActionResult> {
+  try {
+    advanceHousekeepingStatusMock(id, next);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not update housekeeping status" };
+  }
+  revalidatePath("/housekeeping");
+  return { ok: true };
+}
+
+export async function assignHousekeepingStaffAction(id: string, staffName: string): Promise<ActionResult> {
+  try {
+    assignHousekeepingStaffMock(id, staffName);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not assign staff" };
+  }
+  revalidatePath("/housekeeping");
+  return { ok: true };
+}
+
+// ---- Maintenance ----
+
+const createMaintenanceTicketSchema = z.object({
+  roomNumber: z.string().min(1).max(20),
+  category: z.enum(["electrical", "plumbing", "ac", "furniture", "bathroom", "internet", "appliance", "other"]),
+  description: z.string().min(1).max(500),
+  priority: z.enum(["low", "normal", "high", "urgent"]),
+});
+
+export async function createMaintenanceTicketAction(input: {
+  roomNumber: string;
+  category: MaintenanceTicket["category"];
+  description: string;
+  priority: MaintenanceTicket["priority"];
+}): Promise<ActionResult> {
+  const parsed = createMaintenanceTicketSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid ticket details" };
+  }
+  try {
+    createMaintenanceTicketMock(parsed.data);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not create ticket" };
+  }
+  revalidatePath("/maintenance");
+  return { ok: true };
+}
+
+export async function updateMaintenanceTicketStatusAction(
+  id: string,
+  next: MaintenanceStatus,
+  cost?: number
+): Promise<ActionResult> {
+  try {
+    updateMaintenanceTicketStatusMock(id, next, cost);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not update ticket" };
+  }
+  revalidatePath("/maintenance");
+  return { ok: true };
+}
+
+export async function assignMaintenanceTechnicianAction(id: string, technician: string): Promise<ActionResult> {
+  try {
+    assignMaintenanceTechnicianMock(id, technician);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not assign technician" };
+  }
+  revalidatePath("/maintenance");
+  return { ok: true };
 }

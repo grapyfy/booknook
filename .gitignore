@@ -8,6 +8,8 @@ node_modules/
 *.tsbuildinfo
 next-env.d.ts
 
-# Generated mock-data store for local UI preview (components/lib/mockData.ts) —
-# runtime state, not source data.
+# Generated mock-data store for local UI preview (components/lib/mockData.ts,
+# housekeepingMock.ts, maintenanceMock.ts) — runtime state, not source data.
 .mock-store.json
+.mock-store-housekeeping.json
+.mock-store-maintenance.json

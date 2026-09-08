@@ -11,6 +11,8 @@ import {
   faChartLine,
   faUserShield,
   faGear,
+  faBroom,
+  faScrewdriverWrench,
 } from "@fortawesome/free-solid-svg-icons";
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 
@@ -28,6 +30,8 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Halls & events", href: "/halls", icon: faChampagneGlasses },
   { label: "Bookings", href: "/bookings", icon: faCalendarDays },
   { label: "Rooms", href: "/rooms", icon: faDoorOpen },
+  { label: "Housekeeping", href: "/housekeeping", icon: faBroom },
+  { label: "Maintenance", href: "/maintenance", icon: faScrewdriverWrench },
   { label: "Customers", href: "/customers", icon: faUsers },
   { label: "Channels", href: "/channels", icon: faGlobe },
   { label: "Import", href: "/import", icon: faFileImport },

@@ -269,3 +269,26 @@ Teammate feedback: wanted "full control" over price on the New Booking screen, p
 **GST slab now follows the actual charged rate, not the room's list rate**: `generateFolioMock` determines the 12%/18% slab from `booking.amount / nights` (the real per-night value charged after any override/discount) instead of the room's static `ratePerNight`. This is the more correct real-world behavior — GST on accommodation is based on the declared tariff actually charged, not a nominal list price — and it now matters because a booking's charged rate can genuinely differ from the room's listed rate.
 
 **Create booking now redirects straight to its folio** (`/bookings/[id]/folio`) instead of back to the bookings list — `createBookingAction` returns the created booking's id and redirects there, so "create booking" and "generate invoice" are one continuous action, matching what was asked for. The folio page now also shows: a payment-status badge, the rate actually charged (vs. list rate implied by the discount line), the discount as its own line item, the price note if present, and — when services exist — a second card ("Additional services") with an itemized list and a "Grand total (room + services)" beneath the GST-taxed room total. **Service charges are explicitly not run through GST in this invoice yet** — labeled as such on the page — that's real billing-logic work for a later phase, not silently skipped.
+
+---
+
+## Housekeeping (2026-09-08, phase 2) — `/housekeeping`
+
+New mock domain (`components/lib/housekeepingMock.ts`), file-persisted to `.mock-store-housekeeping.json` (gitignored, same pattern as `.mock-store.json`). **Not a field on `Room`** — deliberately kept separate, since cleanliness is a daily task sequence, not a static room property, and this avoids a `types/room.ts` contract change for something that's arguably not the shared contract's concern yet.
+
+- One `HousekeepingTask` per active room per day, seeded fresh (varied statuses, not all "ready") whenever the stored data's date isn't today — so the board always reflects "today," matching what front desk would actually see each morning.
+- **Status sequence**: `dirty → cleaning → inspected → ready`, enforced by `HK_TRANSITIONS` (same fixed-transition-table pattern as booking statuses). The one non-linear step: `inspected → dirty` (a failed inspection sends the room back), and `ready → dirty` (room gets used again / needs re-cleaning).
+- Board is 4 columns (one per status), each task a card with priority, notes, a staff-assign dropdown (filtered to `MOCK_STAFF` with role `HOUSEKEEPING`), and a button to advance to the next status.
+- Top stat tiles are exact counts of tasks in each column — not separately computed, same source of truth as the board itself.
+
+## Maintenance (2026-09-08, phase 2) — `/maintenance`
+
+New mock domain (`components/lib/maintenanceMock.ts`), file-persisted to `.mock-store-maintenance.json`. Also deliberately separate from `Room` — a room can accumulate many tickets over its life, so this doesn't fit as a single field.
+
+- **Status sequence**: `open → assigned → in-progress → (waiting | resolved)`, `waiting → in-progress`, `resolved → closed`. `closed` is terminal — enforced by `MAINT_TRANSITIONS`. Assigning a technician to an `open` ticket auto-advances it to `assigned` (`assignMaintenanceTechnicianMock`) — matches how this actually works at a front desk (assigning *is* the "this is being handled" signal).
+- **Resolving** a ticket prompts for an actual cost (₹, optional, defaults to 0) — stored on `ticket.cost`, shown on the card once set.
+- Category icons (electrical/plumbing/AC/furniture/bathroom/internet/appliance/other) and status/priority pills follow the same badge-styling convention as bookings elsewhere.
+- `/maintenance/new` — real create form (room, category, priority, description) via `createMaintenanceTicketAction`, always starts at `open`.
+- Status-filter pills at the top (`?status=`) — same search-param pattern as the bookings list filter.
+
+Both modules share `constants/staff.ts` (`MOCK_STAFF`) — extracted from what was previously an inline array on the Users & roles page, so "assign to" dropdowns everywhere pick from the same sample names instead of three screens inventing three different fake staff lists.

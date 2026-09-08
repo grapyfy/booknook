@@ -5,20 +5,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faUserPlus } from "@fortawesome/free-solid-svg-icons";
 import { Button } from "@/components/ui/Button";
 import { IllustrativeBanner } from "@/components/IllustrativeBanner";
-
-const MOCK_STAFF = [
-  { name: "Anjali Verma", email: "anjali@grandsarovar.in", role: "OWNER" },
-  { name: "Ravi Kumar", email: "ravi@grandsarovar.in", role: "FRONT_DESK" },
-  { name: "Deepak Bose", email: "deepak@grandsarovar.in", role: "ACCOUNTANT" },
-  { name: "Sunita Rawat", email: "sunita@grandsarovar.in", role: "HOUSEKEEPING" },
-];
-
-const ROLE_STYLES: Record<string, string> = {
-  OWNER: "bg-blue-100 text-blue-700",
-  FRONT_DESK: "bg-green-100 text-green-700",
-  ACCOUNTANT: "bg-amber-100 text-amber-700",
-  HOUSEKEEPING: "bg-neutral-100 text-neutral-600",
-};
+import { MOCK_STAFF, ROLE_STYLES } from "@/constants/staff";
 
 export default function UsersPage() {
   return (
