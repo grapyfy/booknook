@@ -292,3 +292,87 @@ New mock domain (`components/lib/maintenanceMock.ts`), file-persisted to `.mock-
 - Status-filter pills at the top (`?status=`) — same search-param pattern as the bookings list filter.
 
 Both modules share `constants/staff.ts` (`MOCK_STAFF`) — extracted from what was previously an inline array on the Users & roles page, so "assign to" dropdowns everywhere pick from the same sample names instead of three screens inventing three different fake staff lists.
+
+---
+
+## Billing / Payments depth (2026-09-08, phase 3) — `/bookings/[id]/folio`, `/cash-register`, `/reports`
+
+Contract addition (flagged, additive): `Folio` gained `voided?: boolean` and `voidReason?: string`. Two new mock domains: `components/lib/paymentsMock.ts` (payments + credit notes) and `components/lib/cashRegisterMock.ts` (daily cash drawer).
+
+**Not a payment gateway integration.** Recording a payment means "front desk noted that money was received" — normal internal bookkeeping, exactly like a paper register — it never touches a real Razorpay account. The "Pay via UPI" button on the folio page stays a disabled stub, per CLAUDE.md's BYOG rule (no pooled payments, no live gateway wiring here).
+
+### Payments (`paymentsMock.ts`)
+- `PaymentRecord {bookingId, method: cash|upi|card|bank_transfer, type: advance|partial|full|refund, amount, note?, recordedAt}` — a booking can have any number of these.
+- **Balance is always derived, never stored**: `computeBookingBalanceMock(bookingId, totalDue)` = `totalDue - sum(non-refund payments) + sum(refunds)`. Shown on the folio as a colored pill: red "₹X due", blue "₹X credit" (overpaid/refunded past zero), green "Paid in full".
+- **Record payment** — method + type + amount + optional note, via `recordPaymentAction`. Amount input defaults to the current balance due (convenience, not a constraint — any amount can be entered).
+- **Refund** — method + amount + a *required* reason. `refundBookingAction` does two things in one step: records a `type: "refund"` payment AND calls `issueCreditNoteMock` — a refund against an already-invoiced GST bill legally needs a credit note in India (you can't just shrink an issued invoice), so both happen together rather than leaving the second step to be forgotten.
+
+### Void invoice
+- "Void this invoice" (folio page) prompts for a required reason, calls `voidFolioAction` → `voidFolioMock`, which sets `voided: true` on the *current* folio record (kept in `store.folios` for audit history, never deleted).
+- `generateFolioMock`'s idempotent check now explicitly excludes voided folios (`!f.voided`) — so the next time the folio page loads, a **new** folio is generated automatically (new sequential invoice number), and the page shows an amber banner listing every voided invoice number + reason for that booking. This is the "correct and reissue" flow: void the wrong one, a right one appears on next load, nothing needs manual regeneration.
+- A voided folio's GST figures still count toward nothing — `listFoliosMock()` (used by GSTR-1 export and reports) is filtered to `!f.voided` wherever it represents current outward-supply obligations.
+
+### GSTR-1 export (`/reports`) — **real v1-locked feature**, not a stub
+CLAUDE.md's v1 scope explicitly includes "GSTR-1 export" (unlike e-invoice/IRN, which stays excluded). Built as a CSV of every active (non-voided) folio ever generated: invoice number, date, SAC code, taxable value, CGST, SGST, IGST, GST rate, total invoice value — the standard fields a GSTR-1 filing needs per outward supply. Reuses the same real `ExportCsvButton` as the bookings CSV export.
+
+### Outstanding / Payments due (`/reports`)
+A 4th stat tile ("Outstanding") + a "Payments due" list — for every non-cancelled booking, computes the same room-total-incl-GST + service-charges total the folio page would show, calls `computeBookingBalanceMock`, and lists every booking with `balance > 0`, sorted highest-first. Real numbers from real recorded payments, not estimates.
+
+### Cash register (`/cash-register`)
+One entry per calendar day (`CashRegisterDay`). **"Cash received today" is computed, not entered** — `cashReceivedForDate()` sums today's `method: "cash"` payments minus today's cash refunds, straight from the real `paymentsMock` records. Front desk manually enters/edits only the **opening balance** (defaults to the previous closed day's actual counted closing balance — real drawer continuity) and logs **cash paid out** (petty expenses, cash refunds handled outside a booking) with a required note.
+- **Expected closing balance** = opening + cash received − cash paid out (always computed).
+- **Close register** — staff counts the physical drawer and enters the actual amount; **variance** = actual − expected, shown green if zero, red otherwise. Once closed, a day's opening/paid-out entries can no longer be edited (`setOpeningBalanceMock`/`addCashPaidOutMock` both throw if `closedAt` is set).
+- History table below shows every previously closed day.
+
+### What was deliberately not built this phase
+Multi-guest bill-splitting (each guest on a booking paying their own separate share — "split billing" here instead means *multiple payment method rows on one bill*, which is what got built). OTA payout / payment-gateway / bank reconciliation (no real OTA or gateway data exists in this mock to reconcile against — building UI for it would mean fabricating numbers). Auto-settlement. Company/credit billing for corporate accounts (that's the Corporate/Travel-agent module, a separate future phase). None of these were silently skipped — flagging them here so nobody assumes they exist.
+
+---
+
+## Final stub screens + grouped nav (2026-09-08, phase 4) — Marketing/CRM, Corporate & agents, Vendors, Reviews
+
+Four more screens from the original 39-module reference list, built as honest UI-only stubs (`IllustrativeBanner` on each) since none has a real backend concept or data model behind it. No contract changes this round — nothing here touches `types/`.
+
+- **Marketing & CRM** (`/marketing`) — the 4 segment tiles (New/Returning/High spenders/Missing KYC) are **real**, computed from `listCustomersMock()` (stay count, total spend, KYC presence) — not fabricated numbers. Campaign templates below them are static illustrative cards; every "Launch" button is permanently disabled.
+- **Corporate & travel agents** (`/corporate`) — static sample company/agent tables. Explicitly not linked to any real booking (there's no company/agent field on `Booking` — would be a real contract change if this ever becomes a real requirement, not invented here just to back a stub).
+- **Vendors** (`/vendors`) — static sample supplier list with outstanding-payment figures. No purchase-order/expense entity exists anywhere in the codebase to link this to.
+- **Reviews & reputation** (`/reviews`) — sample review cards, deliberately **not** attributed to any real guest name from the mock booking data or framed as pulled from a real Google/OTA feed (labeled "Sample review" throughout) — a fabricated review reading as real is a materially different kind of misleading than a fabricated stat tile, so this was treated more carefully than the other stubs.
+
+**Sidebar grouping** (`constants/nav.ts`, `AppShell.tsx`): the nav crossed 18 items this phase — a long flat list is a real usability problem, not just cosmetic, same spirit as the earlier calendar-redesign feedback. Restructured into 5 labeled groups (Front desk / Guests / Distribution / Finance / Admin). `NAV_ITEMS` (flat) is still exported and derived from `NAV_GROUPS` via `flatMap`, so anything reading the flat list (e.g. `AppShell`'s active-link matching) didn't need to change.
+
+## What's still not built, and why (end of the reference-list build)
+
+Everything below was considered and deliberately not built — not an oversight:
+- **Explicitly excluded from v1** (CLAUDE.md): OTA channel manager engineering (the Channels screen is UI-only, no real sync), booking widget/promo engine, e-invoice/IRN, smart pricing assistant, guest self-service portal, PCI-DSS/infra items, TCS/police C-form.
+- **No real data to build against honestly**: OTA/gateway/bank reconciliation, multi-property switching (no property/tenant concept in the schema), a booking "source/channel" field (Reports uses revenue-by-room instead).
+- **Deferred as a future phase, not this build**: Shift handover, Manager logbook, Activity/audit trail, a full ⌘K command palette (topbar search covers the core case), Custom report builder, Local leads & lead recovery, Inventory/supplies, Expenses, POS/hotel services, Loyalty, Digital key/PWA, AI features, Guest self-service portal, and a real Guest Requests task system (towels/taxi/late-checkout — this one's a strong future candidate since it'd be genuinely buildable the same way Housekeeping/Maintenance were, not a stub).
+- **Offline check-in/sync queue** — locked v1 scope, still not built; `OnlineStatusBadge` (online/offline detection only) is the only piece in place.
+
+---
+
+## Fix: Detailed view + sidebar "Dashboard" link crashing on the preview route (2026-09-08)
+
+**Bug**: `/dashboard-preview` exists specifically so the dashboard is viewable without real Supabase credentials (`/dashboard` itself is gated by `middleware.ts` and crashes without them). But the Minimal/Detailed toggle's links were hardcoded to `/dashboard?view=detailed`, and the sidebar's "Dashboard" nav item always pointed at `/dashboard` too — so clicking either while browsing via the preview route bounced straight into the gated, crashing route. Reported by the teammate as "detailed preview isn't working."
+
+**Fix**:
+- `DashboardViewToggle` (`components/DashboardViewToggle.tsx`, new) — a small client component that reads `usePathname()` and builds both links relative to the *current* path (`pathname` / `${pathname}?view=detailed`) instead of a hardcoded `/dashboard`. Works correctly whether rendered at `/dashboard` or `/dashboard-preview`, since both render the exact same page component (`dashboard-preview/page.tsx` just re-exports it).
+- `AppShell.tsx` — the sidebar's "Dashboard" link now resolves to `/dashboard-preview` instead of `/dashboard` whenever the current pathname is already under `/dashboard-preview`, and the active-highlight logic treats the preview route as "Dashboard" being active too (previously nothing in the sidebar highlighted while on the preview route — a smaller, related bug fixed at the same time).
+
+Verified with a real headless-browser pass: loaded `/dashboard-preview`, clicked Detailed (stayed on preview, showed the full detailed content), clicked Minimal back, then — starting fresh from `/dashboard-preview?view=detailed` — clicked the sidebar's "Dashboard" link and confirmed it lands back on `/dashboard-preview` with no crash, instead of the previous 500.
+
+---
+
+## Channel stop-sell / inventory control (2026-09-08) — `/channels`
+
+Added at the teammate's explicit request for "stopping booking and accepting booking, controlling all OTA platforms." New mock domain (`components/lib/channelInventoryMock.ts`), file-persisted to `.mock-store-channel-inventory.json`. No contract change — `roomType` values come straight from real `listRoomsMock()`, `channel` values from the shared `OTA_PARTNER_NAMES` list (`constants/channels.ts`, extracted from what was previously an inline array on this same page).
+
+**This is real, functional, mock-persisted state — not a static mockup.** Toggling a cell genuinely flips and survives a reload. What it is *not*: a live control surface — there's no real MakeMyTrip/Goibibo/Booking.com connection (same v1-scope-deferred reason the partner cards above it are illustrative), so no toggle here ever reaches an actual OTA. The banner on the matrix says this explicitly.
+
+Three levels of control, all via `ChannelInventoryMatrix.tsx` (client) → `setStopSellAction` / `setChannelStopSellAction` / `setAllChannelsStopSellAction`:
+- **Single cell** (one room type × one channel) — click a cell to flip Open ⇄ Stopped.
+- **Whole channel** ("pause all" / "reopen all" under a channel's column header) — stops or reopens that one OTA across every room type, e.g. pulling out of one channel entirely without touching the others.
+- **Everything** ("Stop selling everywhere" / "Reopen everything", top-right) — a single master switch across every room type × every channel, for a full-property closure. The button's own label/color reflects whether *anything* is currently stopped (`entries.some(e => e.stopSell)`), not a separately tracked flag.
+
+Metasearch (Google Hotels) is excluded from the matrix — it doesn't take direct reservations the way an OTA does, so stop-sell doesn't apply the same way; `OTA_PARTNER_NAMES` filters `CHANNEL_PARTNERS` down to `type === "OTA"` for exactly this reason.
+
+Deliberately not built: per-channel Min/Max LOS or Closed-on-Arrival/Departure restrictions (the matrix covers the core "stop accepting bookings" ask; rate-plan-level restrictions would be a reasonable next increment if actually needed, not built speculatively here).

@@ -2,8 +2,10 @@ import { notFound } from "next/navigation";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faIndianRupeeSign } from "@fortawesome/free-solid-svg-icons";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
-import { getBookingMock, generateFolioMock } from "@/components/lib/mockData";
+import { getBookingMock, generateFolioMock, listFoliosMock } from "@/components/lib/mockData";
+import { listPaymentsForBookingMock, listCreditNotesForBookingMock, computeBookingBalanceMock } from "@/components/lib/paymentsMock";
 import { Button } from "@/components/ui/Button";
+import { PaymentPanel } from "@/components/PaymentPanel";
 
 const PAYMENT_STATUS_STYLES: Record<string, string> = {
   prepaid: "bg-green-100 text-green-700",
@@ -36,6 +38,11 @@ export default async function FolioPage({ params }: { params: Promise<{ id: stri
   const grandTotal = folio.totalAmount + serviceTotal;
   const paymentStatus = booking.paymentStatus ?? "postpaid";
 
+  const payments = listPaymentsForBookingMock(booking.id);
+  const creditNotes = listCreditNotesForBookingMock(booking.id);
+  const balance = computeBookingBalanceMock(booking.id, grandTotal);
+  const voidedFolios = listFoliosMock().filter((f) => f.bookingId === booking.id && f.voided);
+
   const whatsappPreview = `Hi ${booking.guest.name}, your booking at BookNook is confirmed!\nRoom ${booking.roomNumber} · ${booking.checkIn} to ${booking.checkOut}\nTotal: ₹${folio.totalAmount.toLocaleString("en-IN")} (incl. GST)\nInvoice: ${folio.invoiceNumber}`;
 
   return (
@@ -51,6 +58,16 @@ export default async function FolioPage({ params }: { params: Promise<{ id: stri
         <span className={`inline-block mt-2 text-xs px-2 py-1 rounded-full font-medium ${PAYMENT_STATUS_STYLES[paymentStatus]}`}>
           {PAYMENT_STATUS_LABELS[paymentStatus]}
         </span>
+        {voidedFolios.length > 0 && (
+          <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 px-3 py-2 text-xs flex flex-col gap-1">
+            {voidedFolios.map((f) => (
+              <div key={f.id}>
+                Voided invoice <span className="font-mono">{f.invoiceNumber}</span>: {f.voidReason}
+              </div>
+            ))}
+            <div>This is a new invoice, issued after the one(s) above were voided.</div>
+          </div>
+        )}
       </div>
 
       <div className="rounded-lg border border-neutral-200 bg-white p-6 flex flex-col gap-4">
@@ -99,6 +116,8 @@ export default async function FolioPage({ params }: { params: Promise<{ id: stri
           list rate.
         </p>
       </div>
+
+      <PaymentPanel bookingId={booking.id} balance={balance} payments={payments} creditNotes={creditNotes} folioVoided={!!folio.voided} />
 
       {(booking.extraServices ?? []).length > 0 && (
         <div className="rounded-lg border border-neutral-200 bg-white p-6 flex flex-col gap-3">

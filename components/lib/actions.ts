@@ -16,7 +16,20 @@ import {
   listRoomsMock,
   rescheduleBookingMock,
   createGroupBookingMock,
+  voidFolioMock,
 } from "@/components/lib/mockData";
+import { recordPaymentMock, issueCreditNoteMock } from "@/components/lib/paymentsMock";
+import type { PaymentMethod, PaymentType } from "@/components/lib/paymentsMock";
+import {
+  setOpeningBalanceMock,
+  addCashPaidOutMock,
+  closeRegisterMock,
+} from "@/components/lib/cashRegisterMock";
+import {
+  setStopSellMock,
+  setAllChannelsStopSellMock,
+  setChannelStopSellMock,
+} from "@/components/lib/channelInventoryMock";
 import type { ImportReport } from "@/components/lib/mockData";
 import type { Booking } from "@/types/booking";
 import { advanceHousekeepingStatusMock, assignHousekeepingStaffMock } from "@/components/lib/housekeepingMock";
@@ -327,5 +340,153 @@ export async function assignMaintenanceTechnicianAction(id: string, technician: 
     return { ok: false, error: err instanceof Error ? err.message : "Could not assign technician" };
   }
   revalidatePath("/maintenance");
+  return { ok: true };
+}
+
+// ---- Payments, refunds, void invoice ----
+
+const recordPaymentSchema = z.object({
+  bookingId: z.string().min(1),
+  method: z.enum(["cash", "upi", "card", "bank_transfer"]),
+  type: z.enum(["advance", "partial", "full"]),
+  amount: z.number().positive().max(1000000),
+  note: z.string().max(200).optional().or(z.literal("")),
+});
+
+export async function recordPaymentAction(input: {
+  bookingId: string;
+  method: PaymentMethod;
+  type: Exclude<PaymentType, "refund">;
+  amount: number;
+  note?: string;
+}): Promise<ActionResult> {
+  const parsed = recordPaymentSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid payment details" };
+  }
+  try {
+    recordPaymentMock({ ...parsed.data, note: parsed.data.note || undefined });
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not record payment" };
+  }
+  revalidatePath(`/bookings/${input.bookingId}/folio`);
+  revalidatePath("/reports");
+  revalidatePath("/cash-register");
+  return { ok: true };
+}
+
+const refundSchema = z.object({
+  bookingId: z.string().min(1),
+  method: z.enum(["cash", "upi", "card", "bank_transfer"]),
+  amount: z.number().positive().max(1000000),
+  reason: z.string().min(1).max(300),
+});
+
+// A refund against an invoiced booking legally needs a credit note in India
+// (you can't just shrink an already-issued GST invoice) — so this records the
+// refund payment AND issues the matching credit note in one step, rather than
+// leaving it to the caller to remember both.
+export async function refundBookingAction(input: {
+  bookingId: string;
+  method: PaymentMethod;
+  amount: number;
+  reason: string;
+}): Promise<ActionResult> {
+  const parsed = refundSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid refund details" };
+  }
+  try {
+    recordPaymentMock({
+      bookingId: parsed.data.bookingId,
+      method: parsed.data.method,
+      type: "refund",
+      amount: parsed.data.amount,
+      note: parsed.data.reason,
+    });
+    issueCreditNoteMock(parsed.data.bookingId, parsed.data.amount, parsed.data.reason);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not process refund" };
+  }
+  revalidatePath(`/bookings/${input.bookingId}/folio`);
+  revalidatePath("/reports");
+  revalidatePath("/cash-register");
+  return { ok: true };
+}
+
+export async function voidFolioAction(bookingId: string, reason: string): Promise<ActionResult> {
+  if (!reason.trim()) return { ok: false, error: "A reason is required to void an invoice" };
+  try {
+    voidFolioMock(bookingId, reason);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not void invoice" };
+  }
+  revalidatePath(`/bookings/${bookingId}/folio`);
+  revalidatePath("/reports");
+  return { ok: true };
+}
+
+// ---- Cash register ----
+
+export async function setOpeningBalanceAction(amount: number): Promise<ActionResult> {
+  try {
+    setOpeningBalanceMock(amount);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not set opening balance" };
+  }
+  revalidatePath("/cash-register");
+  return { ok: true };
+}
+
+export async function addCashPaidOutAction(amount: number, note: string): Promise<ActionResult> {
+  if (!note.trim()) return { ok: false, error: "A note is required for cash paid out" };
+  try {
+    addCashPaidOutMock(amount, note);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not log cash paid out" };
+  }
+  revalidatePath("/cash-register");
+  return { ok: true };
+}
+
+export async function closeRegisterAction(actualAmount: number): Promise<ActionResult> {
+  try {
+    closeRegisterMock(actualAmount);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not close register" };
+  }
+  revalidatePath("/cash-register");
+  return { ok: true };
+}
+
+// ---- Channel inventory (stop-sell / open-sell — see channelInventoryMock.ts) ----
+
+export async function setStopSellAction(roomType: string, channel: string, stopSell: boolean): Promise<ActionResult> {
+  try {
+    setStopSellMock(roomType, channel, stopSell);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not update stop-sell" };
+  }
+  revalidatePath("/channels");
+  return { ok: true };
+}
+
+export async function setAllChannelsStopSellAction(roomTypes: string[], stopSell: boolean): Promise<ActionResult> {
+  try {
+    setAllChannelsStopSellMock(roomTypes, stopSell);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not update all channels" };
+  }
+  revalidatePath("/channels");
+  return { ok: true };
+}
+
+export async function setChannelStopSellAction(channel: string, roomTypes: string[], stopSell: boolean): Promise<ActionResult> {
+  try {
+    setChannelStopSellMock(channel, roomTypes, stopSell);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not update channel" };
+  }
+  revalidatePath("/channels");
   return { ok: true };
 }

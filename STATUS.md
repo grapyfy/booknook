@@ -161,12 +161,71 @@ Verified with a real headless-browser pass: housekeeping status advance + staff 
 **Not yet built** (remaining phases): Billing/Payments depth (split billing, reconciliation, cash register), Reports depth + custom report builder, remaining stubs (Marketing, Corporate/Travel-agent, Vendor, Reviews, etc).
 
 ## 2026-09-08 — Abhay
-Merged `feature/dashboard-ui` into `main` — Gautam's UI work (all screens, verified in an earlier review, see Obsidian memory) is now on main alongside the backend.
+Merged `feature/dashboard-ui` into `main` (first merge, through part 8 — Front Desk depth, Housekeeping, Maintenance) — Gautam's UI work (verified in an earlier review, see Obsidian memory) is now on main alongside the backend.
 
-Extended the real backend to match everything Gautam built, including the screens beyond the original locked v1 scope (per explicit agreement: build real backends for all of it, not just the original 5). New Prisma models: `BookingGroup`, `ExtraService`, `Channel`, `Hall`/`HallEvent`, `HousekeepingTask`, `MaintenanceTicket`, `PropertySettings`; extended `Guest` (KYC fields) and `Booking` (waitlisted/no-show statuses, source, notes, group, payment status, discount, price note). New services: booking pricing control/reschedule/status-transitions/group-bookings/overbooking+no-show detection, guestService, customerService, reportsService (occupancy/ADR/RevPAR), channelService, hallService, housekeepingService, maintenanceService, settingsService, staffService extended. 20 new/updated API routes, all zod-validated. Full detail in the new `BACKEND_LOGIC.md` (mirrors `LOGIC.md`'s convention for the backend side).
+Extended the real backend to match everything Gautam built up to that point, including screens beyond the original locked v1 scope (per explicit agreement: build real backends for all of it, not just the original 5). New Prisma models: `BookingGroup`, `ExtraService`, `Channel`, `Hall`/`HallEvent`, `HousekeepingTask`, `MaintenanceTicket`, `PropertySettings`; extended `Guest` (KYC fields) and `Booking` (waitlisted/no-show statuses, source, notes, group, payment status, discount, price note). New services: booking pricing control/reschedule/status-transitions/group-bookings/overbooking+no-show detection, guestService, customerService, reportsService (occupancy/ADR/RevPAR), channelService, hallService, housekeepingService, maintenanceService, settingsService, staffService extended. 20 new/updated API routes, all zod-validated. Full detail in the new `BACKEND_LOGIC.md` (mirrors `LOGIC.md`'s convention for the backend side).
 
 Type-checks clean, `npm run build` passes (25+ routes), no new `npm audit` findings.
 
 **Not yet done:** the actual database migration. Supabase project was paused (free-tier auto-pause) when this work happened — schema was written and Prisma Client generated entirely without a live DB connection (`prisma generate` doesn't need one, only `migrate dev`/runtime queries do). Whoever picks this up next: restore the Supabase project first, then `npx prisma migrate dev --name front_desk_depth_and_new_modules`, then verify end-to-end before trusting anything in `BACKEND_LOGIC.md` as actually live.
 
 One real correctness note carried over from Gautam's mock-layer work: GST slab should follow the rate actually charged per booking, not a room's live list rate. The real backend never had this bug (`Booking.roomRatePerNight` was always the per-booking stored rate) — confirmed correct, no fix needed, but worth knowing why it's right.
+
+## 2026-09-08 — Teammate (part 9) — Billing/Payments depth (phase 3)
+
+Phase 3 of the priority-ordered build. Still on `feature/dashboard-ui`, backend untouched.
+
+Two new mock domains (`components/lib/paymentsMock.ts`, `cashRegisterMock.ts`) plus one contract addition (flagged, additive): `Folio` gained `voided`/`voidReason`.
+
+**Not a payment gateway integration** — recording a payment is front-desk bookkeeping (money was received, note it down), never a real Razorpay call. The BYOG "Pay via UPI" button stays a disabled stub, unchanged.
+
+**Built, real:**
+- Payment recording against any booking (cash/UPI/card/bank transfer, advance/partial/full), with a derived (never stored) balance shown as a colored pill on the folio.
+- Refunds — recording a refund also auto-issues a credit note in the same action (legally required alongside a GST invoice reduction in India, so it's not a step someone could forget).
+- Void invoice — voiding lets the next page load auto-generate a fresh, correctly-numbered invoice; the voided one stays visible as audit history with its reason.
+- **GSTR-1 CSV export** on Reports — this is explicitly *in* CLAUDE.md's locked v1 scope (unlike e-invoice/IRN, which stays excluded), so it's real functionality, not a stub: every active (non-voided) invoice's SAC code, taxable value, CGST/SGST, total.
+- Outstanding-balance stat + a "Payments due" list on Reports, computed from real recorded payments across every non-cancelled booking.
+- Cash register (`/cash-register`) — one entry per day, "cash received" computed for real from that day's actual cash payments (not entered manually), opening-balance continuity from the prior closed day, cash-paid-out logging, and a close-register flow with a real actual-vs-expected variance.
+
+**Deliberately not built** (flagged, not silently skipped): multi-guest bill-splitting (a booking's total split across several guests each paying separately — what got built instead is multiple payment *methods* on one bill), OTA/gateway/bank reconciliation (no real OTA or gateway data exists to reconcile against), auto-settlement, corporate/credit billing (belongs to the future Corporate/Travel-agent phase).
+
+Verified with a real headless-browser pass: recorded a payment to clear a partial balance to "Paid in full," voided that invoice with a reason and confirmed a new invoice number was issued automatically, processed a partial refund on a different booking and confirmed both the balance and the auto-issued credit note appeared, confirmed the cash register's "cash received" figure exactly matched the net of the real payments/refund just recorded (seed ₹9,000 + payment ₹12,240 − refund ₹1,000 = ₹20,240, matched exactly), and confirmed Reports shows both the Outstanding total and the GSTR-1 export. Zero console errors. Reset all mock-store files afterward.
+
+**Remaining phase**: the rest of the original 39-module stub list (Marketing/CRM, Corporate & Travel Agent accounts, Vendor management, Reviews & reputation, etc).
+
+## 2026-09-08 — Teammate (part 10) — final reference-list stub screens
+
+Last phase of the priority-ordered build through the original 39-module reference list. Still on `feature/dashboard-ui`, backend untouched, no contract changes this round.
+
+Four more honest UI-only stubs (`IllustrativeBanner` on each, matching the pattern from part 4): **Marketing & CRM** (`/marketing` — guest segment tiles are real, computed from actual customer data; campaign templates are static, "Launch" always disabled), **Corporate & travel agents** (`/corporate` — sample companies/agents, not linked to real bookings), **Vendors** (`/vendors` — sample suppliers), **Reviews & reputation** (`/reviews` — sample review cards, deliberately not attributed to any real mock guest name or a real platform, to avoid a fabricated review reading as authentic).
+
+**Also regrouped the sidebar** (`constants/nav.ts`, `AppShell.tsx`) into 5 labeled sections (Front desk / Guests / Distribution / Finance / Admin) — it had crossed 18 flat items, which is a real usability problem on its own, not just cosmetic.
+
+`LOGIC.md` now has a closing section listing everything from the original reference list that's deliberately *not* built and why — either explicitly excluded from v1, no real data to build against honestly, or a real future phase (Guest Requests task tracking is flagged as the strongest future candidate, since it'd be genuinely buildable the same way Housekeeping/Maintenance were rather than another stub).
+
+Verified: clean production build (33 routes), headless-browser pass across all 4 new screens plus a screenshot of the regrouped nav. Zero console errors. Reset all mock-store files afterward.
+
+**A note for whoever reviews this branch**: it has grown to 10 STATUS.md entries / 5 commits over one continuous session, which is exactly the "PR grown large" signal CLAUDE.md's own engineering standards call out as worth splitting up in the future. Recommend reviewing and merging what's here before more gets piled on, rather than continuing to grow it further.
+
+## 2026-09-08 — Teammate (part 11) — fix: Detailed view crashing on the preview route
+
+Bug report: "detailed preview isn't working." Root cause — `/dashboard-preview` (the route that exists specifically so the dashboard is viewable without real Supabase credentials) shares its page component with the real, middleware-gated `/dashboard`, but the Minimal/Detailed toggle and the sidebar's "Dashboard" link were both hardcoded to `/dashboard`. Clicking either while browsing via the preview route bounced into the gated route, which crashes without real Supabase env vars — same known limitation as `/login`.
+
+Fixed: the toggle (`components/DashboardViewToggle.tsx`, now a small client component) builds its links from the current pathname instead of a hardcoded path, and the sidebar's "Dashboard" link stays on `/dashboard-preview` when that's where you already are. Also fixed a smaller related bug found in the same spot: the sidebar previously never highlighted anything while on the preview route.
+
+Verified with a headless-browser pass clicking through Detailed → Minimal → sidebar Dashboard, all staying on the preview route with no crash. Also cleared a stale `.next` dev-cache issue unrelated to this bug (a `next build`/`next dev` alternation artifact from earlier in the session, not an app bug) that was separately causing a 500 on first load.
+
+## 2026-09-08 — Teammate (part 12) — channel stop-sell / inventory control
+
+Teammate asked for "UI of stopping booking and accepting booking controlling all OTA platforms" — the Rates & Inventory piece of the Channel Manager module from the original reference list. Extended the existing `/channels` stub (already an established, explicitly-flagged v1-scope exception since part 4) rather than opening new scope-conflict territory.
+
+Built a real, interactive, mock-persisted stop-sell matrix — room type × OTA channel, three control levels: toggle one cell, pause/reopen a whole channel, or a global "stop selling everywhere" master switch. **This is genuinely functional state (survives a reload), not a static mockup** — but it's still not a live control surface, since no real OTA connection exists; nothing toggled here is ever pushed anywhere. Same honest-stub framing as the rest of `/channels`, made explicit in the matrix's own banner text.
+
+Extracted the previously-inline OTA partner list on `/channels` into `constants/channels.ts` so the partner cards and the new stop-sell matrix read from one shared list instead of drifting apart. Metasearch (Google Hotels) is correctly excluded from the matrix — it doesn't take direct bookings, so "stop-sell" isn't a meaningful concept for it.
+
+Verified with a real headless-browser pass: toggled a single cell (Stopped/Open flip persisted correctly), paused MakeMyTrip across all 3 room types via the per-channel control (confirmed only that channel changed, others stayed Open), and exercised the global toggle both directions (Stop selling everywhere → 15/15 cells stopped → Reopen everything → 0/15 stopped). Zero console errors. Reset the new mock-store file afterward.
+
+## 2026-09-09 — Abhay
+Merged the second round of UI work into `main` (parts 9-12: Billing/Payments depth, final stub screens, the dashboard-preview crash fix, and the channel stop-sell matrix) — resolved conflicts in `CLAUDE.md`/this file by combining both sides' additions rather than picking one.
+
+**Backend gap identified, not yet closed:** Billing/Payments depth (part 9) needs real schema/services for Payment recording, refunds + credit notes, invoice void-and-reissue, the cash register, and GSTR-1 CSV export — none of that exists in the backend yet. This is explicitly in locked v1 scope (GSTR-1 export is named in CLAUDE.md's scope list), so it's not optional scope creep to build, unlike the UI-only stub screens. Next backend session should treat this as the priority, same discipline as the Front Desk depth pass: real Prisma models, real migration, `BACKEND_LOGIC.md` updated to match.

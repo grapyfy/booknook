@@ -32,10 +32,10 @@ import {
   faRightToBracket,
   faRightFromBracket,
   faDoorOpen,
-  faGaugeHigh,
   faChartLine,
 } from "@fortawesome/free-solid-svg-icons";
 import { AppShell } from "@/components/AppShell";
+import { DashboardViewToggle } from "@/components/DashboardViewToggle";
 import { StatCard } from "@/components/StatCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { RevenueLineChart } from "@/components/charts/RevenueLineChart";
@@ -68,26 +68,7 @@ export default async function DashboardPage({
             <h1 className="text-xl font-semibold">Dashboard</h1>
             <p className="text-sm text-neutral-500">Here&apos;s what&apos;s happening at your hotel.</p>
           </div>
-          <div className="inline-flex rounded-lg border border-neutral-200 bg-white p-1">
-            <Link
-              href="/dashboard"
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                !detailed ? "bg-blue-600 text-white" : "text-neutral-500 hover:text-neutral-900"
-              }`}
-            >
-              <FontAwesomeIcon icon={faGaugeHigh} className="h-3 w-3" />
-              Minimal
-            </Link>
-            <Link
-              href="/dashboard?view=detailed"
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                detailed ? "bg-blue-600 text-white" : "text-neutral-500 hover:text-neutral-900"
-              }`}
-            >
-              <FontAwesomeIcon icon={faChartLine} className="h-3 w-3" />
-              Detailed
-            </Link>
-          </div>
+          <DashboardViewToggle detailed={detailed} />
         </div>
 
         <div className={`grid gap-4 ${detailed ? "grid-cols-3 lg:grid-cols-6" : "grid-cols-4"}`}>
