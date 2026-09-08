@@ -33,18 +33,22 @@ npm run dev   # http://localhost:3000
 - GST billing (Folio) — 12%/18% slab by room rate, CGST+SGST (intra-state assumed for v1), SAC 996311, idempotent — `app/api/bookings/[id]/folio/`
 - Excel/CSV import with "Nothing Lost" report — flexible headers, mixed date formats, auto-creates unknown rooms only if a rate is given — `app/api/import/bookings/`
 
-**Not built yet:** any real UI beyond a bare-bones login form and a plain booking list (`app/dashboard/page.tsx` — built only to verify the backend end-to-end, not meant to be the real UI; UI is the teammate's lane, see "Team split" below). WhatsApp confirmation (deferred). Offline check-in/sync queue.
+**UI — built on `feature/dashboard-ui` (2026-09-08, not yet merged to `main`, pushed to origin):** all 5 v1 screens below are done against mock data (login restyle, bookings list/calendar/new-booking form, room management, GST folio, CSV import), plus a dashboard home with a Minimal/Detailed toggle, booking lifecycle actions (check-in/out/cancel/no-show/waitlist-confirm), guest profiles + digital KYC, a Gantt-style calendar (drag-and-drop reschedule, day/week/month views, overbooking + possible-no-show detection), walk-in + group bookings, and full front-desk pricing control (rate override/discount/service charges, payment status) wired straight into invoice generation. **This snapshot only summarizes — for exact behavior read `LOGIC.md` (every button/link/computed number), the dated build log in `STATUS.md`, and the design system in `context.md`.**
+
+**Also built, deliberately exceeding this doc's locked v1 scope below** — an explicit, flagged decision made with the teammate mid-build, not a unilateral scope change (see `STATUS.md`'s part-4 entry): Channels/OTA, Users & roles, Halls & events, and some Settings tabs, all as honest UI-only stubs (visibly labeled in-app), never wired to a real OTA sync or message send. Whoever reviews this branch should know that going in.
+
+**Still not built:** offline check-in/sync queue, and any real WhatsApp send (the folio screen has an inert preview only, per this doc's "never wire a live send" rule below). Service charges captured on a booking don't flow into the GST folio yet (shown for reference only) — real billing-line-item integration is deferred, not skipped silently.
 
 ## What the UI needs to build (teammate's call on exact order/design — this is what exists to build against)
 
-Screens with a real, working API already behind them:
+Screens with a real, working API already behind them — **status: all 5 built, see the snapshot above and `LOGIC.md` for exact behavior:**
 1. **Login** — exists (`app/login/page.tsx`) but bare-bones; restyle freely, the auth logic underneath is solid
 2. **Booking calendar/list + "new booking" form** — `types/booking.ts`'s `Booking`/`Guest` contract, `GET`/`POST /api/bookings`
 3. **Room management** (add a room, see rates) — `types/room.ts`'s `Room` contract, `GET`/`POST /api/rooms`
 4. **Folio/invoice view** (show the GST bill for a booking) — `types/booking.ts`'s `Folio` contract, `GET`/`POST /api/bookings/:id/folio`
 5. **CSV import screen** (upload a file, show the "Nothing Lost" report) — `POST /api/import/bookings`, multipart `file` field, returns `{totalRows, imported[], flagged[], roomsCreated[]}`
 
-Build against mock data first (already in `types/`), swap to the real fetch calls once ready — that's the contract workflow below.
+Build against mock data first (already in `types/`), swap to the real fetch calls once ready — that's the contract workflow below. (Done for all 5 above, still against mock data — swapping to real `fetch()` calls is the next real step once backend + UI are ready to plug together.)
 
 ## v1 scope — locked
 **Build:** front desk (calendar, walk-in, guest profile, digital KYC), GST folio + billing + GSTR-1 export, UPI payments (BYOG model — see below), WhatsApp booking confirmation + missed-call recovery, Excel/CSV importer with "Nothing Lost" report, offline check-in with a sync queue.

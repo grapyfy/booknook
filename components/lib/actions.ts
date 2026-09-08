@@ -34,6 +34,16 @@ const createBookingSchema = z.object({
   checkOut: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD"),
   roomNumber: z.string().min(1).max(20),
   notes: z.string().max(500).optional().or(z.literal("")),
+  // Pricing control — see createBookingMock's comment: this proposes a rate/
+  // discount, the server still derives the final amount from a formula.
+  rateOverride: z.number().positive().max(1000000).optional(),
+  discountAmount: z.number().min(0).max(1000000).optional(),
+  extraServices: z
+    .array(z.object({ name: z.string().min(1).max(80), amount: z.number().positive().max(1000000) }))
+    .max(10)
+    .optional(),
+  paymentStatus: z.enum(["prepaid", "postpaid", "partial"]).optional(),
+  priceNote: z.string().max(300).optional().or(z.literal("")),
 });
 
 export async function createBookingAction(input: {
@@ -42,13 +52,19 @@ export async function createBookingAction(input: {
   checkOut: string;
   roomNumber: string;
   notes?: string;
+  rateOverride?: number;
+  discountAmount?: number;
+  extraServices?: { name: string; amount: number }[];
+  paymentStatus?: "prepaid" | "postpaid" | "partial";
+  priceNote?: string;
 }): Promise<ActionResult> {
   const parsed = createBookingSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid booking details" };
   }
+  let bookingId: string;
   try {
-    createBookingMock({
+    const booking = createBookingMock({
       ...parsed.data,
       guest: {
         ...parsed.data.guest,
@@ -56,12 +72,14 @@ export async function createBookingAction(input: {
         idNumber: parsed.data.guest.idNumber || undefined,
       },
       notes: parsed.data.notes || undefined,
+      priceNote: parsed.data.priceNote || undefined,
       source: "direct",
     });
+    bookingId = booking.id;
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not create booking" };
   }
-  redirect("/bookings");
+  redirect(`/bookings/${bookingId}/folio`);
 }
 
 const createWalkInSchema = createBookingSchema;

@@ -238,3 +238,34 @@ There's still no availability check on booking creation (a real endpoint would r
 
 ### Notes / special requests
 Optional free-text field on `Booking`, captured on the new-booking and walk-in forms. Shown as a small note icon (hover for the text) next to the guest's name on the bookings list, and as an italicized line on the guest-profile page's "This booking" card. Never required, never validated beyond a 500-char cap.
+
+---
+
+## Calendar redesign (2026-09-08, feedback pass)
+
+Replaced the "one badge per day" calendar with a proper Gantt-style timeline. Contract change (flagged, additive/optional): `Booking` gained `paymentStatus?: "prepaid" | "postpaid" | "partial"` and `extraServices?: ExtraService[]` (`{name, amount}`).
+
+- **Spanning bars, not repeated badges**: `CalendarGrid`'s `segmentsFor()` walks each room's visible days and collapses consecutive days covered by the *same* booking into one `<td colSpan={n}>` — a 4-night stay renders as one continuous bar 4 columns wide (with a small "4n" night-count label), not four separate day cells. Filtering (search/status) recomputes segments from the filtered booking set, so a filtered-out booking's days just show as empty again.
+- **Bold status colors on the bars** (`STATUS_BAR_STYLES` — solid `bg-blue-600`/`bg-green-600`/etc with white text), a deliberate departure from the soft `StatusBadge` pill palette used in tables — a timeline needs more contrast at a glance. See `context.md`.
+- **Click a bar → `BookingDetailPanel`** (slide-over, replaces relying on a browser tooltip): guest name/phone, status + payment-status badges, room, check-in→check-out, nights, per-night rate, an itemized charges breakdown (room charges + each `extraServices` line + total), notes if present, and a link to the full GST folio.
+  - **Payment status** (`paymentStatus`): `prepaid` (green), `postpaid` (neutral — the default shown when the field is absent, since that's the front-desk norm), `partial` (amber).
+  - **Service charges** (`extraServices`): informational only right now — summed into the panel's "Total" for display, but **not** added to `booking.amount` and **not** included in the GST folio calculation yet. Flagged explicitly in the panel itself ("don't flow into the GST folio yet") — that wiring is billing-depth work (a later phase), not fabricated here.
+
+---
+
+## Full pricing control on the New Booking form (2026-09-08, feedback pass)
+
+Teammate feedback: wanted "full control" over price on the New Booking screen, plus generating the invoice as the natural next step. Contract change (flagged, additive): `Booking` gained `discountAmount?: number` and `priceNote?: string`.
+
+**This is not "trusting a client-sent amount"** (CLAUDE.md's core money rule): the form sends a *proposed* rate/discount, `createBookingMock` still derives `amount` from a formula and clamps every input server-side — it never accepts a final total directly.
+
+- **Rate override** — a "List rate ⇄ Custom rate" toggle on the form. Off: uses the room's real `ratePerNight` (unchanged behavior). On: front desk types a per-night rate (negotiated/corporate/walk-in haggle); `createBookingMock` uses `rateOverride` only if it's a positive number, otherwise silently falls back to the room's real rate — never trusts a non-positive or missing value.
+- **Discount** — a flat ₹ amount, clamped server-side to `[0, subtotal]` (`discountAmount` in `createBookingMock`) — can't go negative or exceed the room subtotal itself. Stored on the booking (`Booking.discountAmount`) purely so the folio can show it as a line item.
+- **Additional services** — same `ExtraService[]` shape as the calendar detail panel, now captured at booking-creation time instead of only after the fact.
+- **Payment status** — prepaid/postpaid/partial, same field the calendar panel already reads.
+- **Price note** — free-text audit trail for *why* a rate was overridden/discounted (e.g. "Corporate rate agreed by GM"). Never used in any calculation — display-only.
+- **Live estimate** — the form shows nights × effective rate, discount, services, and a running "Estimated total" as the front desk types, computed identically to the server formula (still just a client preview — the real `amount` is always recomputed on save).
+
+**GST slab now follows the actual charged rate, not the room's list rate**: `generateFolioMock` determines the 12%/18% slab from `booking.amount / nights` (the real per-night value charged after any override/discount) instead of the room's static `ratePerNight`. This is the more correct real-world behavior — GST on accommodation is based on the declared tariff actually charged, not a nominal list price — and it now matters because a booking's charged rate can genuinely differ from the room's listed rate.
+
+**Create booking now redirects straight to its folio** (`/bookings/[id]/folio`) instead of back to the bookings list — `createBookingAction` returns the created booking's id and redirects there, so "create booking" and "generate invoice" are one continuous action, matching what was asked for. The folio page now also shows: a payment-status badge, the rate actually charged (vs. list rate implied by the discount line), the discount as its own line item, the price note if present, and — when services exist — a second card ("Additional services") with an itemized list and a "Grand total (room + services)" beneath the GST-taxed room total. **Service charges are explicitly not run through GST in this invoice yet** — labeled as such on the page — that's real billing-logic work for a later phase, not silently skipped.

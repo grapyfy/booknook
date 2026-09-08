@@ -29,6 +29,20 @@ export interface Booking {
   notes?: string; // internal notes / guest special requests
   groupId?: string; // set when this booking is one room in a multi-room group booking
   groupName?: string; // e.g. "Sharma Wedding Party" — same on every booking sharing a groupId
+  // Calendar-detail additions (2026-09-08) — also additive/optional.
+  paymentStatus?: "prepaid" | "postpaid" | "partial"; // absent = unknown/legacy row, shown as "postpaid" (front-desk default)
+  extraServices?: ExtraService[]; // add-on charges (room service, laundry, etc) — NOT yet included in `amount` or the GST folio; display-only until the billing-depth phase wires them into the invoice
+  // Pricing-control additions (2026-09-08) — also additive/optional.
+  discountAmount?: number; // flat rupee discount applied when this booking was created, already netted into `amount` — kept separately just so the folio can show it as a line item
+  priceNote?: string; // free-text reason for a manual rate override/discount (e.g. "Corporate rate", "GM approved 10% off") — audit trail, not used in any calculation
+}
+
+// A single add-on charge against a booking (room service, laundry, minibar...).
+// Deliberately separate from `amount` (room charges only, GST-relevant) — see
+// the note on `extraServices` above.
+export interface ExtraService {
+  name: string;
+  amount: number;
 }
 
 export interface Folio {
@@ -60,6 +74,7 @@ export const MOCK_BOOKINGS: Booking[] = [
     status: "confirmed",
     amount: 3500,
     createdAt: "2026-08-31T10:00:00.000Z",
+    paymentStatus: "postpaid",
   },
   {
     id: "b2",
@@ -77,6 +92,11 @@ export const MOCK_BOOKINGS: Booking[] = [
     status: "checked-in",
     amount: 13500,
     createdAt: "2026-09-04T09:15:00.000Z",
+    paymentStatus: "prepaid",
+    extraServices: [
+      { name: "Room service — dinner", amount: 850 },
+      { name: "Laundry", amount: 300 },
+    ],
   },
   {
     id: "b3",
@@ -87,6 +107,8 @@ export const MOCK_BOOKINGS: Booking[] = [
     status: "checked-out",
     amount: 5000,
     createdAt: "2026-09-01T14:30:00.000Z",
+    paymentStatus: "postpaid",
+    extraServices: [{ name: "Minibar", amount: 450 }],
   },
   {
     id: "b4",
@@ -97,6 +119,7 @@ export const MOCK_BOOKINGS: Booking[] = [
     status: "confirmed",
     amount: 18000,
     createdAt: "2026-09-07T11:00:00.000Z",
+    paymentStatus: "partial",
   },
   {
     id: "b5",

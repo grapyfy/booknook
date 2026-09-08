@@ -5,6 +5,22 @@ import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import { getBookingMock, generateFolioMock } from "@/components/lib/mockData";
 import { Button } from "@/components/ui/Button";
 
+const PAYMENT_STATUS_STYLES: Record<string, string> = {
+  prepaid: "bg-green-100 text-green-700",
+  postpaid: "bg-neutral-100 text-neutral-600",
+  partial: "bg-amber-100 text-amber-700",
+};
+
+const PAYMENT_STATUS_LABELS: Record<string, string> = {
+  prepaid: "Prepaid",
+  postpaid: "Postpaid — pay at checkout",
+  partial: "Partially paid",
+};
+
+function nightsBetween(checkIn: string, checkOut: string): number {
+  return Math.max(1, Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000));
+}
+
 export default async function FolioPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const booking = getBookingMock(id);
@@ -13,6 +29,12 @@ export default async function FolioPage({ params }: { params: Promise<{ id: stri
   // Same idempotent generate-or-fetch pattern as the real
   // POST /api/bookings/:id/folio — safe to land on this page repeatedly.
   const folio = generateFolioMock(id);
+
+  const nights = nightsBetween(booking.checkIn, booking.checkOut);
+  const perNightRate = Math.round(booking.amount / nights);
+  const serviceTotal = (booking.extraServices ?? []).reduce((sum, s) => sum + s.amount, 0);
+  const grandTotal = folio.totalAmount + serviceTotal;
+  const paymentStatus = booking.paymentStatus ?? "postpaid";
 
   const whatsappPreview = `Hi ${booking.guest.name}, your booking at BookNook is confirmed!\nRoom ${booking.roomNumber} · ${booking.checkIn} to ${booking.checkOut}\nTotal: ₹${folio.totalAmount.toLocaleString("en-IN")} (incl. GST)\nInvoice: ${folio.invoiceNumber}`;
 
@@ -23,8 +45,12 @@ export default async function FolioPage({ params }: { params: Promise<{ id: stri
           Folio — <span className="font-mono">{folio.invoiceNumber}</span>
         </h1>
         <p className="text-sm text-neutral-500 font-mono">
-          {booking.guest.name} · Room {booking.roomNumber} · {booking.checkIn} → {booking.checkOut}
+          {booking.guest.name} · Room {booking.roomNumber} · {booking.checkIn} → {booking.checkOut} · {nights} night
+          {nights > 1 ? "s" : ""}
         </p>
+        <span className={`inline-block mt-2 text-xs px-2 py-1 rounded-full font-medium ${PAYMENT_STATUS_STYLES[paymentStatus]}`}>
+          {PAYMENT_STATUS_LABELS[paymentStatus]}
+        </span>
       </div>
 
       <div className="rounded-lg border border-neutral-200 bg-white p-6 flex flex-col gap-4">
@@ -33,8 +59,20 @@ export default async function FolioPage({ params }: { params: Promise<{ id: stri
           <span className="font-mono">{folio.sacCode}</span>
         </div>
         <div className="border-t border-neutral-100 pt-4 flex flex-col gap-2 text-sm font-mono">
+          <div className="flex justify-between text-neutral-500">
+            <span className="font-sans">Rate charged</span>
+            <span>
+              ₹{perNightRate.toLocaleString("en-IN")}/night × {nights}
+            </span>
+          </div>
+          {booking.discountAmount ? (
+            <div className="flex justify-between text-red-600">
+              <span className="font-sans">Discount applied</span>
+              <span>-₹{booking.discountAmount.toLocaleString("en-IN")}</span>
+            </div>
+          ) : null}
           <div className="flex justify-between">
-            <span className="font-sans">Room charges</span>
+            <span className="font-sans">Room charges (after discount)</span>
             <span>₹{folio.baseAmount.toLocaleString("en-IN")}</span>
           </div>
           <div className="flex justify-between text-neutral-500">
@@ -47,14 +85,41 @@ export default async function FolioPage({ params }: { params: Promise<{ id: stri
           </div>
         </div>
         <div className="border-t border-neutral-200 pt-4 flex justify-between text-base font-semibold">
-          <span>Total</span>
+          <span>Room total (incl. GST)</span>
           <span className="font-mono">₹{folio.totalAmount.toLocaleString("en-IN")}</span>
         </div>
+        {booking.priceNote && (
+          <p className="text-xs text-neutral-500 border-t border-neutral-100 pt-3">
+            <span className="font-medium">Pricing note:</span> {booking.priceNote}
+          </p>
+        )}
         <p className="text-xs text-neutral-400">
           Mock GST calculation for preview — the real amount is always computed server-side (see
-          services/billingService.ts).
+          services/billingService.ts). GST slab is based on the actual per-night rate charged, not the room&apos;s
+          list rate.
         </p>
       </div>
+
+      {(booking.extraServices ?? []).length > 0 && (
+        <div className="rounded-lg border border-neutral-200 bg-white p-6 flex flex-col gap-3">
+          <div className="font-medium text-sm">Additional services</div>
+          <div className="flex flex-col gap-2 text-sm font-mono">
+            {booking.extraServices!.map((s, i) => (
+              <div key={i} className="flex justify-between text-neutral-600">
+                <span className="font-sans">{s.name}</span>
+                <span>₹{s.amount.toLocaleString("en-IN")}</span>
+              </div>
+            ))}
+          </div>
+          <div className="border-t border-neutral-200 pt-3 flex justify-between text-base font-semibold">
+            <span>Grand total (room + services)</span>
+            <span className="font-mono">₹{grandTotal.toLocaleString("en-IN")}</span>
+          </div>
+          <p className="text-xs text-neutral-400">
+            Service charges are shown for reference — not yet run through GST in this invoice (billing-depth phase).
+          </p>
+        </div>
+      )}
 
       <div className="rounded-lg border border-neutral-200 bg-white p-6 flex items-center justify-between">
         <div>

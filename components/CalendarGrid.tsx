@@ -2,22 +2,26 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faMagnifyingGlass } from "@fortawesome/free-solid-svg-icons";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { BookingDetailPanel } from "@/components/BookingDetailPanel";
 import { rescheduleBookingAction } from "@/components/lib/actions";
 import type { Booking } from "@/types/booking";
 import type { Room } from "@/types/room";
 
-const STATUS_CELL_STYLES: Record<Booking["status"], string> = {
-  confirmed: "bg-blue-50 text-blue-700 border-blue-100",
-  "checked-in": "bg-green-50 text-green-700 border-green-100",
-  "checked-out": "bg-neutral-50 text-neutral-400 border-neutral-100",
-  cancelled: "bg-red-50 text-red-700 border-red-100",
-  waitlisted: "bg-amber-50 text-amber-700 border-amber-100",
-  "no-show": "bg-orange-50 text-orange-700 border-orange-100",
+// Bold, saturated bars on purpose — this is a Gantt-style timeline read at a
+// glance across many rooms/days, so it needs more visual weight than the soft
+// status pills used in tables/detail pages elsewhere (StatusBadge). Intentional
+// deviation, not a consistency slip — see context.md.
+const STATUS_BAR_STYLES: Record<Booking["status"], string> = {
+  confirmed: "bg-blue-600 text-white",
+  "checked-in": "bg-green-600 text-white",
+  "checked-out": "bg-neutral-300 text-neutral-600",
+  cancelled: "bg-red-200 text-red-700 line-through opacity-70",
+  waitlisted: "bg-amber-500 text-white",
+  "no-show": "bg-orange-600 text-white",
 };
 
 // A booking can only be dragged to a new room/date while it's still "live" —
@@ -34,6 +38,12 @@ function addDays(date: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+interface Segment {
+  date: string;
+  booking?: Booking;
+  span: number;
+}
+
 export function CalendarGrid({ rooms, bookings, days }: { rooms: Room[]; bookings: Booking[]; days: string[] }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -42,6 +52,7 @@ export function CalendarGrid({ rooms, bookings, days }: { rooms: Room[]; booking
   const [dragBookingId, setDragBookingId] = useState<string | null>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [detailBooking, setDetailBooking] = useState<Booking | null>(null);
 
   const filtered = useMemo(() => {
     return bookings.filter((b) => {
@@ -53,6 +64,30 @@ export function CalendarGrid({ rooms, bookings, days }: { rooms: Room[]; booking
 
   function bookingFor(roomNumber: string, date: string): Booking | undefined {
     return filtered.find((b) => b.status !== "cancelled" && b.roomNumber === roomNumber && date >= b.checkIn && date < b.checkOut);
+  }
+
+  // Collapse consecutive days occupied by the same booking into one spanning
+  // segment (a table cell with colSpan) instead of one badge per day — a
+  // 4-night stay renders as one bar 4 columns wide, not 4 separate ones.
+  function segmentsFor(roomNumber: string): Segment[] {
+    const segments: Segment[] = [];
+    let i = 0;
+    while (i < days.length) {
+      const date = days[i];
+      const booking = bookingFor(roomNumber, date);
+      if (!booking) {
+        segments.push({ date, span: 1 });
+        i += 1;
+        continue;
+      }
+      let span = 0;
+      while (i + span < days.length && bookingFor(roomNumber, days[i + span])?.id === booking.id) {
+        span += 1;
+      }
+      segments.push({ date, booking, span });
+      i += span;
+    }
+    return segments;
   }
 
   function handleDrop(targetRoom: Room, targetDate: string) {
@@ -100,7 +135,7 @@ export function CalendarGrid({ rooms, bookings, days }: { rooms: Room[]; booking
           <option value="cancelled">Cancelled</option>
           <option value="no-show">No-show</option>
         </Select>
-        <span className="text-xs text-neutral-400">Drag a confirmed/checked-in/waitlisted booking to a new room or date to move it.</span>
+        <span className="text-xs text-neutral-400">Click a stay for full details. Drag confirmed/checked-in/waitlisted stays to move them.</span>
       </div>
 
       {error && (
@@ -108,7 +143,7 @@ export function CalendarGrid({ rooms, bookings, days }: { rooms: Room[]; booking
       )}
 
       <div className="rounded-lg border border-neutral-200 bg-white overflow-x-auto">
-        <table className="text-sm border-collapse">
+        <table className="text-sm border-collapse w-full">
           <thead>
             <tr>
               <th className="sticky left-0 bg-white px-4 py-3 text-left font-medium text-neutral-500 border-b border-r border-neutral-200 z-10">
@@ -132,14 +167,14 @@ export function CalendarGrid({ rooms, bookings, days }: { rooms: Room[]; booking
                   {room.roomNumber}
                   {!room.active && <span className="ml-2 text-xs text-neutral-400 font-sans">(inactive)</span>}
                 </td>
-                {days.map((date) => {
-                  const booking = bookingFor(room.roomNumber, date);
-                  const cellKey = `${room.roomNumber}|${date}`;
+                {segmentsFor(room.roomNumber).map((seg) => {
+                  const cellKey = `${room.roomNumber}|${seg.date}`;
                   const isDragOver = dragOverKey === cellKey;
-                  const draggable = booking && DRAGGABLE_STATUSES.includes(booking.status);
+                  const draggable = seg.booking && DRAGGABLE_STATUSES.includes(seg.booking.status);
                   return (
                     <td
-                      key={date}
+                      key={seg.date}
+                      colSpan={seg.span}
                       className={`p-1 border-b border-neutral-100 ${isDragOver ? "bg-blue-50 ring-1 ring-inset ring-blue-300" : ""}`}
                       onDragOver={(e) => {
                         if (!dragBookingId) return;
@@ -149,13 +184,14 @@ export function CalendarGrid({ rooms, bookings, days }: { rooms: Room[]; booking
                       onDragLeave={() => setDragOverKey((k) => (k === cellKey ? null : k))}
                       onDrop={(e) => {
                         e.preventDefault();
-                        handleDrop(room, date);
+                        handleDrop(room, seg.date);
                       }}
                     >
-                      {booking ? (
-                        <Link
-                          href={`/bookings/${booking.id}/folio`}
-                          title={`${booking.guest.name} · ${booking.checkIn} → ${booking.checkOut}${draggable ? " · drag to move" : ""}`}
+                      {seg.booking ? (
+                        <button
+                          type="button"
+                          onClick={() => setDetailBooking(seg.booking!)}
+                          title={`${seg.booking.guest.name} · ${seg.booking.checkIn} → ${seg.booking.checkOut}${draggable ? " · drag to move" : ""}`}
                           draggable={draggable}
                           onDragStart={(e) => {
                             if (!draggable) {
@@ -163,15 +199,16 @@ export function CalendarGrid({ rooms, bookings, days }: { rooms: Room[]; booking
                               return;
                             }
                             e.dataTransfer.effectAllowed = "move";
-                            setDragBookingId(booking.id);
+                            setDragBookingId(seg.booking!.id);
                           }}
                           onDragEnd={() => setDragBookingId(null)}
-                          className={`block rounded px-1.5 py-1 text-xs border truncate hover:opacity-80 ${STATUS_CELL_STYLES[booking.status]} ${draggable ? "cursor-grab active:cursor-grabbing" : ""}`}
+                          className={`w-full flex items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium truncate hover:opacity-90 ${STATUS_BAR_STYLES[seg.booking.status]} ${draggable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}`}
                         >
-                          {booking.guest.name}
-                        </Link>
+                          <span className="truncate">{seg.booking.guest.name}</span>
+                          {seg.span > 1 && <span className="font-mono opacity-80 shrink-0">{seg.span}n</span>}
+                        </button>
                       ) : (
-                        <div className="h-6" />
+                        <div className="h-7" />
                       )}
                     </td>
                   );
@@ -181,6 +218,8 @@ export function CalendarGrid({ rooms, bookings, days }: { rooms: Room[]; booking
           </tbody>
         </table>
       </div>
+
+      {detailBooking && <BookingDetailPanel booking={detailBooking} onClose={() => setDetailBooking(null)} />}
     </div>
   );
 }

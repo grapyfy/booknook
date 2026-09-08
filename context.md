@@ -34,6 +34,8 @@ Page header pattern: `<h1 className="text-xl font-semibold">` + a one-line `text
 - `RoomStatusBar` (`components/charts/RoomStatusBar.tsx`) — **a horizontal stacked bar, not a donut/pie.** Room status is a part-to-whole composition, and the [dataviz skill](https://www.anthropic.com) flags pie/donut as the wrong default for that job — a stacked bar reads faster and scales better. Each segment is a status color + icon + label + count (never color alone).
 - `Button` / `Input` / `Select` / `FormField` / `StatusBadge` (`components/ui/`) — shared primitives, one corner-radius scale (`rounded-lg`), one focus-ring treatment.
 - `BookingsViewToggle` — List/Calendar tab pattern, reused wherever a screen needs two views of the same data.
+- `CalendarGrid` (2026-09-08 redesign) — Gantt-style: consecutive days of the same booking collapse into **one spanning bar** (`<td colSpan>`), not one badge per day, so a 4-night stay reads as one continuous 4-wide block. Bars use **bold, saturated status colors** (`bg-blue-600 text-white` etc, `STATUS_BAR_STYLES`) — a deliberate exception to the soft-pill `StatusBadge` palette used everywhere else, because a timeline read at a glance across many rooms/days needs more contrast than a small status tag in a table row. Click a bar to open `BookingDetailPanel` (price, nights, payment status, service charges, notes) instead of relying on a browser title-tooltip.
+- `BookingDetailPanel` — slide-over panel with the full stay breakdown: nights, per-night rate, payment status (prepaid/postpaid/partial), itemized service charges + total, notes, link to the full GST folio.
 
 ## What was deliberately *not* copied from the reference images
 

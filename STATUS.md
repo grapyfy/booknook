@@ -119,3 +119,27 @@ Phase 1 of a priority-ordered pass through a much larger feature list the teamma
 Verified with a real headless-browser interaction pass (not just a clean build): walk-in flow end-to-end, group-booking creation end-to-end, waitlist filter + confirm action, drag-and-drop (moved a real booking to a different room, confirmed the calendar reflects it), and both alert banners firing off the real seeded conflict/no-show data. Zero console errors. Reset `.mock-store.json` afterward so the test-created rows ("Test Walkin Guest", "Test Group Co") don't linger for whoever looks at this next — mock data is back to the seeded baseline in `types/booking.ts`.
 
 **Not yet built** (later phases, per the agreed order): Housekeeping + Maintenance as new modules, Billing/Payments depth (split billing, reconciliation, cash register), Reports depth + custom report builder, remaining stubs (Marketing, Corporate/Travel-agent, Vendor, Reviews, etc).
+
+## 2026-09-08 — Teammate (part 6) — calendar redesign, feedback pass
+
+Teammate feedback: the calendar looked flat/pale and had low utility (one small badge per day, even for a multi-night stay), wanted real guest detail (price, nights, prepaid/postpaid, service charges) reachable from it, and asked for a single bar spanning a whole stay instead of one segment per day.
+
+Rebuilt `CalendarGrid` as a proper Gantt timeline: consecutive days of the same booking now collapse into one spanning `colSpan` bar instead of repeating per day, using bold solid status colors (a deliberate, documented exception to the soft `StatusBadge` pill style used elsewhere — a timeline needs more contrast). Clicking a bar opens a new slide-over (`BookingDetailPanel`) with the full stay breakdown instead of a plain browser tooltip: nights, per-night rate, itemized service charges + total, payment status, notes, and a link to the folio.
+
+**Contract change** (flagged, additive/optional, signed off this session): `Booking` gained `paymentStatus` (`prepaid`/`postpaid`/`partial`) and `extraServices` (`{name, amount}[]`). Seeded a few real examples (Priya Sharma: prepaid + room-service + laundry charges; Arvind Rao: postpaid + minibar; Fatima Sheikh: partial). **Explicitly not wired into the GST folio yet** — service charges show in the detail panel and sum into its total, but `generateFolioMock` still only taxes `amount` (room charges). Flagged both in the panel UI itself and here — real invoice-line-item integration is billing-depth work, a later phase, not skipped silently.
+
+Verified with a headless-browser pass: bar collapsing (3-night stay shows as one "3n" bar), detail panel opening with the right payment-status badge and both service-charge lines. Zero console errors. Reset `.mock-store.json` to the seeded baseline afterward.
+
+## 2026-09-08 — Teammate (part 7) — full pricing control + invoice generation
+
+Teammate feedback (screenshot of the New Booking form): wanted full control over price — rate override, prepaid/postpaid, service charges — and wanted invoice generation to follow naturally from creating a booking.
+
+Added a "Pricing" section to the New Booking form: a List-rate/Custom-rate toggle (staff can charge something other than the room's list rate — negotiated/corporate rate, walk-in haggle), a flat ₹ discount, additional service-charge rows, a payment-status selector (prepaid/postpaid/partial), and an optional note explaining a manual override (audit trail, not used in any calculation). A live running total updates as front desk types.
+
+**Important: this is still "never trust a client-sent amount," not an exception to it.** The form sends a *proposed* rate and discount; `createBookingMock` still computes `amount` from a formula server-(mock)-side and clamps both inputs to sane, non-negative ranges — it never accepts a final total directly from the client. Same contract-change pattern as before (flagged, additive): `Booking` gained `discountAmount` and `priceNote`.
+
+**Real correctness fix while in there**: GST slab determination (`generateFolioMock`) now uses the actual per-night rate charged (`amount / nights`) instead of the room's static list rate — matches how GST on accommodation actually works (tax follows the declared tariff charged, not a nominal list price), and now matters since a booking's rate can genuinely diverge from the room's listed rate.
+
+**Booking creation now redirects straight into the generated invoice** (`/bookings/[id]/folio`) instead of back to the list — "create booking" and "generate invoice" are one flow now, per the ask. Folio page extended to show payment status, the actual rate charged, the discount line, the price note, and (when services exist) a second card with an itemized services list and a grand total — clearly labeled that service charges aren't run through GST in this invoice yet (real billing-logic work, a later phase).
+
+Verified with a real headless-browser pass: filled the pricing section end-to-end (custom rate ₹3,000/night, ₹500 discount, one ₹600 service, prepaid, a price note), confirmed the live estimate matched, submitted, confirmed it landed on the folio page with every field reflected correctly — including the GST slab correctly following the discounted per-night rate (₹2,750, still under the ₹7,500 threshold → 12%, not 18%). Zero console errors. Reset `.mock-store.json` afterward.

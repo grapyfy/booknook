@@ -14,7 +14,7 @@
 import fs from "fs";
 import path from "path";
 import Papa from "papaparse";
-import type { Booking, Folio, Guest } from "@/types/booking";
+import type { Booking, Folio, Guest, ExtraService } from "@/types/booking";
 import { MOCK_BOOKINGS } from "@/types/booking";
 import type { Room } from "@/types/room";
 import { MOCK_ROOMS } from "@/types/room";
@@ -271,14 +271,28 @@ export function createBookingMock(input: {
   // assumption entirely (a request against a specific room, not yet promised).
   // Defaults to "confirmed" — the normal reservation path.
   initialStatus?: "confirmed" | "checked-in" | "waitlisted";
+  // Pricing control — front desk can charge something other than the room's
+  // list rate (negotiated/corporate rate, walk-in haggle, error correction)
+  // and apply a flat discount. This is NOT "trusting a client-sent amount":
+  // the caller proposes a rate/discount, the server still derives `amount`
+  // from a formula and clamps every input to a sane, non-negative range —
+  // never accepts a final total directly.
+  rateOverride?: number; // per-night rate to charge instead of the room's listed rate
+  discountAmount?: number; // flat rupee discount off the subtotal, clamped to [0, subtotal]
+  extraServices?: ExtraService[];
+  paymentStatus?: Booking["paymentStatus"];
+  priceNote?: string;
 }): Booking {
   const store = loadStore();
   // Room rate is looked up server-side (here: mock-server-side) by roomNumber —
-  // the amount is never accepted from the caller. See CLAUDE.md's "never trust
-  // an amount from the client" rule.
+  // still validates the room is real/active even when a rate override is used.
+  // See CLAUDE.md's "never trust an amount from the client" rule.
   const roomRatePerNight = getActiveRoomRate(store, input.roomNumber);
   const nights = nightsBetween(input.checkIn, input.checkOut);
-  const amount = roomRatePerNight * nights;
+  const effectiveRate = input.rateOverride && input.rateOverride > 0 ? input.rateOverride : roomRatePerNight;
+  const subtotal = effectiveRate * nights;
+  const discountAmount = Math.min(Math.max(input.discountAmount ?? 0, 0), subtotal);
+  const amount = subtotal - discountAmount;
 
   const guest: Guest = { id: newId(store, "g"), ...input.guest };
   const booking: Booking = {
@@ -292,6 +306,10 @@ export function createBookingMock(input: {
     createdAt: new Date().toISOString(),
     source: input.source,
     notes: input.notes,
+    extraServices: input.extraServices,
+    paymentStatus: input.paymentStatus,
+    discountAmount: discountAmount > 0 ? discountAmount : undefined,
+    priceNote: input.priceNote,
   };
   store.bookings.push(booking);
   saveStore(store);
@@ -485,8 +503,14 @@ export function generateFolioMock(bookingId: string): Folio {
   const existing = store.folios.find((f) => f.bookingId === bookingId);
   if (existing) return existing; // idempotent — never double-bill
 
+  // GST slab is based on the actual per-night value charged (the "declared
+  // tariff"), not the room's static list rate — so a manually overridden or
+  // discounted rate correctly shifts which slab applies, same as it would for
+  // a real hotel. Falls back to the room's list rate only if nights can't be
+  // derived (shouldn't happen for a real booking).
+  const nights = nightsBetween(booking.checkIn, booking.checkOut);
   const room = store.rooms.find((r) => r.roomNumber === booking.roomNumber);
-  const roomRatePerNight = room ? room.ratePerNight : booking.amount;
+  const roomRatePerNight = nights > 0 ? booking.amount / nights : room ? room.ratePerNight : booking.amount;
 
   const baseAmount = booking.amount;
   const gstRate = gstRateForRoomRate(roomRatePerNight);

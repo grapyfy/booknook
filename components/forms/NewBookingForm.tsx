@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faPlus, faTrash, faLock, faLockOpen } from "@fortawesome/free-solid-svg-icons";
 import { createBookingAction } from "@/components/lib/actions";
 import { Button } from "@/components/ui/Button";
 import { FormField, Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import type { Room } from "@/types/room";
-import type { Guest } from "@/types/booking";
+import type { Guest, Booking } from "@/types/booking";
 
 const ID_TYPE_LABELS: Record<NonNullable<Guest["idType"]>, string> = {
   aadhaar: "Aadhaar",
@@ -16,6 +18,17 @@ const ID_TYPE_LABELS: Record<NonNullable<Guest["idType"]>, string> = {
   voter_id: "Voter ID",
   other: "Other",
 };
+
+const PAYMENT_STATUS_OPTIONS: { value: NonNullable<Booking["paymentStatus"]>; label: string }[] = [
+  { value: "postpaid", label: "Postpaid — pay at checkout" },
+  { value: "prepaid", label: "Prepaid — already paid in full" },
+  { value: "partial", label: "Partially paid" },
+];
+
+interface ServiceRow {
+  name: string;
+  amount: string;
+}
 
 export function NewBookingForm({ rooms }: { rooms: Room[] }) {
   const router = useRouter();
@@ -28,6 +41,14 @@ export function NewBookingForm({ rooms }: { rooms: Room[] }) {
   const [checkOut, setCheckOut] = useState("");
   const [roomNumber, setRoomNumber] = useState(rooms.find((r) => r.active)?.roomNumber ?? "");
   const [notes, setNotes] = useState("");
+
+  const [overrideRate, setOverrideRate] = useState(false);
+  const [customRate, setCustomRate] = useState("");
+  const [discount, setDiscount] = useState("");
+  const [paymentStatus, setPaymentStatus] = useState<NonNullable<Booking["paymentStatus"]>>("postpaid");
+  const [services, setServices] = useState<ServiceRow[]>([]);
+  const [priceNote, setPriceNote] = useState("");
+
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -36,9 +57,27 @@ export function NewBookingForm({ rooms }: { rooms: Room[] }) {
     checkIn && checkOut
       ? Math.max(1, Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000))
       : 0;
-  // Client-side only — a preview, not the real total. The server (mock or real)
-  // always recomputes this from the room's actual rate. Never trust this number.
-  const estimatedAmount = selectedRoom ? selectedRoom.ratePerNight * nights : 0;
+
+  const listRate = selectedRoom?.ratePerNight ?? 0;
+  const effectiveRate = overrideRate && Number(customRate) > 0 ? Number(customRate) : listRate;
+  const subtotal = effectiveRate * nights;
+  const discountValue = Math.min(Math.max(Number(discount) || 0, 0), subtotal);
+  const servicesTotal = services.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+  // Client-side preview only — the server (mock or real) always recomputes
+  // this from the room's actual rate + the same clamped formula. Never trust
+  // this number; it's just so front desk sees the total before saving.
+  const roomTotal = subtotal - discountValue;
+  const grandTotal = roomTotal + servicesTotal;
+
+  function updateService(i: number, patch: Partial<ServiceRow>) {
+    setServices((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
+  }
+  function addService() {
+    setServices((prev) => [...prev, { name: "", amount: "" }]);
+  }
+  function removeService(i: number) {
+    setServices((prev) => prev.filter((_, idx) => idx !== i));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -56,6 +95,13 @@ export function NewBookingForm({ rooms }: { rooms: Room[] }) {
       checkOut,
       roomNumber,
       notes: notes || undefined,
+      rateOverride: overrideRate && Number(customRate) > 0 ? Number(customRate) : undefined,
+      discountAmount: Number(discount) > 0 ? Number(discount) : undefined,
+      extraServices: services
+        .filter((s) => s.name.trim() && Number(s.amount) > 0)
+        .map((s) => ({ name: s.name.trim(), amount: Number(s.amount) })),
+      paymentStatus,
+      priceNote: priceNote || undefined,
     });
     setSubmitting(false);
     if (result && !result.ok) {
@@ -123,12 +169,127 @@ export function NewBookingForm({ rooms }: { rooms: Room[] }) {
         </Select>
       </FormField>
 
-      {nights > 0 && selectedRoom && (
-        <p className="text-sm text-neutral-500">
-          {nights} night{nights > 1 ? "s" : ""} × ₹{selectedRoom.ratePerNight} ≈ ₹
-          {estimatedAmount.toLocaleString("en-IN")} (estimate — final amount is computed on save)
-        </p>
-      )}
+      {/* Pricing control — full override on rate + discount + add-on services.
+          Everything here is a proposal the server re-derives the amount from,
+          never a final total accepted as-is (see createBookingMock). */}
+      <div className="rounded-lg border border-neutral-200 p-4 flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium text-neutral-700">Pricing</span>
+          <button
+            type="button"
+            onClick={() => {
+              setOverrideRate((v) => !v);
+              if (!overrideRate) setCustomRate(String(listRate || ""));
+            }}
+            className={`inline-flex items-center gap-1.5 text-xs font-medium rounded-full px-2.5 py-1 ${
+              overrideRate ? "bg-amber-100 text-amber-700" : "bg-neutral-100 text-neutral-500"
+            }`}
+          >
+            <FontAwesomeIcon icon={overrideRate ? faLockOpen : faLock} className="h-3 w-3" />
+            {overrideRate ? "Custom rate" : "List rate"}
+          </button>
+        </div>
+
+        {overrideRate ? (
+          <FormField label={`Rate per night (list price ₹${listRate.toLocaleString("en-IN")})`} htmlFor="customRate">
+            <Input
+              id="customRate"
+              type="number"
+              min={1}
+              value={customRate}
+              onChange={(e) => setCustomRate(e.target.value)}
+              placeholder="Negotiated / corporate rate"
+            />
+          </FormField>
+        ) : (
+          <p className="text-sm text-neutral-500">
+            ₹{listRate.toLocaleString("en-IN")}/night (this room&apos;s list rate)
+          </p>
+        )}
+
+        <FormField label="Discount (flat ₹, optional)" htmlFor="discount">
+          <Input id="discount" type="number" min={0} value={discount} onChange={(e) => setDiscount(e.target.value)} />
+        </FormField>
+
+        <FormField label="Payment status" htmlFor="paymentStatus">
+          <Select
+            id="paymentStatus"
+            value={paymentStatus}
+            onChange={(e) => setPaymentStatus(e.target.value as NonNullable<Booking["paymentStatus"]>)}
+          >
+            {PAYMENT_STATUS_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
+        </FormField>
+
+        <div className="flex flex-col gap-2">
+          <span className="text-sm font-medium text-neutral-700">Additional services (optional)</span>
+          {services.map((s, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <Input
+                placeholder="e.g. Airport pickup"
+                value={s.name}
+                onChange={(e) => updateService(i, { name: e.target.value })}
+                className="flex-1"
+              />
+              <Input
+                type="number"
+                min={0}
+                placeholder="₹"
+                value={s.amount}
+                onChange={(e) => updateService(i, { amount: e.target.value })}
+                className="w-28"
+              />
+              <button type="button" onClick={() => removeService(i)} className="text-neutral-400 hover:text-red-600">
+                <FontAwesomeIcon icon={faTrash} className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+          <button type="button" onClick={addService} className="self-start inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700">
+            <FontAwesomeIcon icon={faPlus} className="h-3 w-3" />
+            Add a service charge
+          </button>
+        </div>
+
+        {overrideRate && (
+          <FormField label="Note (why the rate/discount was changed, optional)" htmlFor="priceNote">
+            <Input id="priceNote" value={priceNote} onChange={(e) => setPriceNote(e.target.value)} placeholder="e.g. Corporate rate agreed by GM" />
+          </FormField>
+        )}
+
+        {nights > 0 && effectiveRate > 0 && (
+          <div className="border-t border-neutral-100 pt-3 flex flex-col gap-1 text-sm font-mono">
+            <div className="flex justify-between text-neutral-500">
+              <span className="font-sans">
+                {nights} night{nights > 1 ? "s" : ""} × ₹{effectiveRate.toLocaleString("en-IN")}
+              </span>
+              <span>₹{subtotal.toLocaleString("en-IN")}</span>
+            </div>
+            {discountValue > 0 && (
+              <div className="flex justify-between text-red-600">
+                <span className="font-sans">Discount</span>
+                <span>-₹{discountValue.toLocaleString("en-IN")}</span>
+              </div>
+            )}
+            {servicesTotal > 0 && (
+              <div className="flex justify-between text-neutral-500">
+                <span className="font-sans">Services</span>
+                <span>₹{servicesTotal.toLocaleString("en-IN")}</span>
+              </div>
+            )}
+            <div className="flex justify-between font-semibold text-neutral-900 border-t border-neutral-100 pt-1 mt-1">
+              <span className="font-sans">Estimated total</span>
+              <span>₹{grandTotal.toLocaleString("en-IN")}</span>
+            </div>
+            <p className="text-xs text-neutral-400 font-sans">
+              Estimate — the final amount + GST invoice are computed on save.
+            </p>
+          </div>
+        )}
+      </div>
 
       <FormField label="Notes / special requests (optional)" htmlFor="notes">
         <textarea
@@ -146,7 +307,7 @@ export function NewBookingForm({ rooms }: { rooms: Room[] }) {
 
       <div className="flex gap-3">
         <Button type="submit" disabled={submitting}>
-          {submitting ? "Saving..." : "Create booking"}
+          {submitting ? "Saving..." : "Create booking & generate invoice"}
         </Button>
       </div>
     </form>
