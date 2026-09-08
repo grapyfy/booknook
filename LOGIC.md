@@ -326,3 +326,24 @@ One entry per calendar day (`CashRegisterDay`). **"Cash received today" is compu
 
 ### What was deliberately not built this phase
 Multi-guest bill-splitting (each guest on a booking paying their own separate share — "split billing" here instead means *multiple payment method rows on one bill*, which is what got built). OTA payout / payment-gateway / bank reconciliation (no real OTA or gateway data exists in this mock to reconcile against — building UI for it would mean fabricating numbers). Auto-settlement. Company/credit billing for corporate accounts (that's the Corporate/Travel-agent module, a separate future phase). None of these were silently skipped — flagging them here so nobody assumes they exist.
+
+---
+
+## Final stub screens + grouped nav (2026-09-08, phase 4) — Marketing/CRM, Corporate & agents, Vendors, Reviews
+
+Four more screens from the original 39-module reference list, built as honest UI-only stubs (`IllustrativeBanner` on each) since none has a real backend concept or data model behind it. No contract changes this round — nothing here touches `types/`.
+
+- **Marketing & CRM** (`/marketing`) — the 4 segment tiles (New/Returning/High spenders/Missing KYC) are **real**, computed from `listCustomersMock()` (stay count, total spend, KYC presence) — not fabricated numbers. Campaign templates below them are static illustrative cards; every "Launch" button is permanently disabled.
+- **Corporate & travel agents** (`/corporate`) — static sample company/agent tables. Explicitly not linked to any real booking (there's no company/agent field on `Booking` — would be a real contract change if this ever becomes a real requirement, not invented here just to back a stub).
+- **Vendors** (`/vendors`) — static sample supplier list with outstanding-payment figures. No purchase-order/expense entity exists anywhere in the codebase to link this to.
+- **Reviews & reputation** (`/reviews`) — sample review cards, deliberately **not** attributed to any real guest name from the mock booking data or framed as pulled from a real Google/OTA feed (labeled "Sample review" throughout) — a fabricated review reading as real is a materially different kind of misleading than a fabricated stat tile, so this was treated more carefully than the other stubs.
+
+**Sidebar grouping** (`constants/nav.ts`, `AppShell.tsx`): the nav crossed 18 items this phase — a long flat list is a real usability problem, not just cosmetic, same spirit as the earlier calendar-redesign feedback. Restructured into 5 labeled groups (Front desk / Guests / Distribution / Finance / Admin). `NAV_ITEMS` (flat) is still exported and derived from `NAV_GROUPS` via `flatMap`, so anything reading the flat list (e.g. `AppShell`'s active-link matching) didn't need to change.
+
+## What's still not built, and why (end of the reference-list build)
+
+Everything below was considered and deliberately not built — not an oversight:
+- **Explicitly excluded from v1** (CLAUDE.md): OTA channel manager engineering (the Channels screen is UI-only, no real sync), booking widget/promo engine, e-invoice/IRN, smart pricing assistant, guest self-service portal, PCI-DSS/infra items, TCS/police C-form.
+- **No real data to build against honestly**: OTA/gateway/bank reconciliation, multi-property switching (no property/tenant concept in the schema), a booking "source/channel" field (Reports uses revenue-by-room instead).
+- **Deferred as a future phase, not this build**: Shift handover, Manager logbook, Activity/audit trail, a full ⌘K command palette (topbar search covers the core case), Custom report builder, Local leads & lead recovery, Inventory/supplies, Expenses, POS/hotel services, Loyalty, Digital key/PWA, AI features, Guest self-service portal, and a real Guest Requests task system (towels/taxi/late-checkout — this one's a strong future candidate since it'd be genuinely buildable the same way Housekeeping/Maintenance were, not a stub).
+- **Offline check-in/sync queue** — locked v1 scope, still not built; `OnlineStatusBadge` (online/offline detection only) is the only piece in place.

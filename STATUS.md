@@ -181,3 +181,17 @@ Two new mock domains (`components/lib/paymentsMock.ts`, `cashRegisterMock.ts`) p
 Verified with a real headless-browser pass: recorded a payment to clear a partial balance to "Paid in full," voided that invoice with a reason and confirmed a new invoice number was issued automatically, processed a partial refund on a different booking and confirmed both the balance and the auto-issued credit note appeared, confirmed the cash register's "cash received" figure exactly matched the net of the real payments/refund just recorded (seed ₹9,000 + payment ₹12,240 − refund ₹1,000 = ₹20,240, matched exactly), and confirmed Reports shows both the Outstanding total and the GSTR-1 export. Zero console errors. Reset all mock-store files afterward.
 
 **Remaining phase**: the rest of the original 39-module stub list (Marketing/CRM, Corporate & Travel Agent accounts, Vendor management, Reviews & reputation, etc).
+
+## 2026-09-08 — Teammate (part 10) — final reference-list stub screens
+
+Last phase of the priority-ordered build through the original 39-module reference list. Still on `feature/dashboard-ui`, backend untouched, no contract changes this round.
+
+Four more honest UI-only stubs (`IllustrativeBanner` on each, matching the pattern from part 4): **Marketing & CRM** (`/marketing` — guest segment tiles are real, computed from actual customer data; campaign templates are static, "Launch" always disabled), **Corporate & travel agents** (`/corporate` — sample companies/agents, not linked to real bookings), **Vendors** (`/vendors` — sample suppliers), **Reviews & reputation** (`/reviews` — sample review cards, deliberately not attributed to any real mock guest name or a real platform, to avoid a fabricated review reading as authentic).
+
+**Also regrouped the sidebar** (`constants/nav.ts`, `AppShell.tsx`) into 5 labeled sections (Front desk / Guests / Distribution / Finance / Admin) — it had crossed 18 flat items, which is a real usability problem on its own, not just cosmetic.
+
+`LOGIC.md` now has a closing section listing everything from the original reference list that's deliberately *not* built and why — either explicitly excluded from v1, no real data to build against honestly, or a real future phase (Guest Requests task tracking is flagged as the strongest future candidate, since it'd be genuinely buildable the same way Housekeeping/Maintenance were rather than another stub).
+
+Verified: clean production build (33 routes), headless-browser pass across all 4 new screens plus a screenshot of the regrouped nav. Zero console errors. Reset all mock-store files afterward.
+
+**A note for whoever reviews this branch**: it has grown to 10 STATUS.md entries / 5 commits over one continuous session, which is exactly the "PR grown large" signal CLAUDE.md's own engineering standards call out as worth splitting up in the future. Recommend reviewing and merging what's here before more gets piled on, rather than continuing to grow it further.

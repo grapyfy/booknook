@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { NAV_ITEMS } from "@/constants/nav";
+import { NAV_ITEMS, NAV_GROUPS } from "@/constants/nav";
 import { OnlineStatusBadge } from "@/components/OnlineStatusBadge";
 import { LogoutButton } from "@/components/LogoutButton";
 import { TopbarSearch } from "@/components/TopbarSearch";
@@ -28,22 +28,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </span>
           <span className="text-lg font-semibold">BookNook</span>
         </div>
-        <nav className="flex-1 px-3 py-4 flex flex-col gap-1 overflow-y-auto">
-          {NAV_ITEMS.map((item) => {
-            const active = item.href === activeHref;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                  active ? "bg-blue-600 text-white" : "text-neutral-600 hover:bg-neutral-100"
-                }`}
-              >
-                <FontAwesomeIcon icon={item.icon} className="h-4 w-4" />
-                {item.label}
-              </Link>
-            );
-          })}
+        <nav className="flex-1 px-3 py-4 flex flex-col gap-4 overflow-y-auto">
+          {NAV_GROUPS.map((group) => (
+            <div key={group.label} className="flex flex-col gap-1">
+              <div className="px-3 pb-1 text-xs font-semibold text-neutral-400 uppercase tracking-wide">{group.label}</div>
+              {group.items.map((item) => {
+                const active = item.href === activeHref;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                      active ? "bg-blue-600 text-white" : "text-neutral-600 hover:bg-neutral-100"
+                    }`}
+                  >
+                    <FontAwesomeIcon icon={item.icon} className="h-4 w-4" />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
       </aside>
       <div className="flex-1 flex flex-col min-w-0">
