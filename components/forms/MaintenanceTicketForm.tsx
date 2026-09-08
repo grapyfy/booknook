@@ -7,18 +7,8 @@ import { Button } from "@/components/ui/Button";
 import { FormField } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import type { Room } from "@/types/room";
-import type { MaintenanceCategory, MaintenancePriority } from "@/components/lib/maintenanceMock";
-
-const CATEGORY_LABELS: Record<MaintenanceCategory, string> = {
-  electrical: "Electrical",
-  plumbing: "Plumbing",
-  ac: "AC",
-  furniture: "Furniture",
-  bathroom: "Bathroom",
-  internet: "Internet",
-  appliance: "Appliance",
-  other: "Other",
-};
+import { CATEGORY_LABELS } from "@/constants/maintenance";
+import type { MaintenanceCategory, MaintenancePriority } from "@/constants/maintenance";
 
 export function MaintenanceTicketForm({ rooms }: { rooms: Room[] }) {
   const router = useRouter();

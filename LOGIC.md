@@ -396,3 +396,13 @@ Three real (not hypothetical) overflow bugs found only by measuring `scrollWidth
 - `CashRegisterPanel.tsx`'s "log a paid-out" form (label input + amount input + button) — same fix.
 
 `/login` was not touched — it renders fine at any width; its only failure mode (crashing without real Supabase env vars) is pre-existing and identical on desktop, documented in `CLAUDE.md`.
+
+---
+
+## Hardcoded-values audit (2026-09-09)
+
+Real duplications found and centralized (see `STATUS.md` part 14 for the full list): `PAYMENT_METHODS` (now one const array in `paymentsMock.ts`, `Zod` schemas in `actions.ts` import it instead of re-listing), `gstRateForRoomRate()` and `nightsBetween()` (both now exported from `mockData.ts` instead of being re-implemented on `/reports`), and maintenance category/priority data.
+
+**`constants/maintenance.ts` is new** — holds `MAINTENANCE_CATEGORIES`, `MAINTENANCE_PRIORITIES`, and `CATEGORY_LABELS`, with zero server-only imports. This split exists specifically so client components (`MaintenanceTicketCard.tsx`, `MaintenanceTicketForm.tsx`) can import `CATEGORY_LABELS` as a value without pulling `maintenanceMock.ts`'s `fs`/`path`-based mock-store code into the browser bundle (that exact mistake broke the production build once during this pass, fixed by the split). `maintenanceMock.ts` now imports the `MaintenanceCategory`/`MaintenancePriority` *types* from `constants/maintenance.ts` for its `MaintenanceTicket` interface — general rule going forward: a `"use client"` component may only take a **value** import (not `import type`) from a `components/lib/*Mock.ts` file if that file has no server-only (`fs`, `path`, etc.) imports anywhere in it; otherwise the shared data belongs in `constants/` instead.
+
+**Not touched, flagged instead:** `Guest.idType` and `Booking.paymentStatus` are each declared in `types/booking.ts` and separately re-declared as a `z.enum([...])` in `actions.ts` — same duplication pattern, but `types/` is the shared contract with Abhay and needs sign-off before its declaration style changes, per `CLAUDE.md`.

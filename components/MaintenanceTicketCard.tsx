@@ -20,6 +20,7 @@ import {
   updateMaintenanceTicketStatusAction,
 } from "@/components/lib/actions";
 import { MOCK_STAFF } from "@/constants/staff";
+import { CATEGORY_LABELS } from "@/constants/maintenance";
 import type { MaintenanceTicket, MaintenanceStatus } from "@/components/lib/maintenanceMock";
 
 const CATEGORY_ICONS: Record<MaintenanceTicket["category"], typeof faBolt> = {
@@ -31,17 +32,6 @@ const CATEGORY_ICONS: Record<MaintenanceTicket["category"], typeof faBolt> = {
   internet: faWifi,
   appliance: faPlug,
   other: faScrewdriverWrench,
-};
-
-const CATEGORY_LABELS: Record<MaintenanceTicket["category"], string> = {
-  electrical: "Electrical",
-  plumbing: "Plumbing",
-  ac: "AC",
-  furniture: "Furniture",
-  bathroom: "Bathroom",
-  internet: "Internet",
-  appliance: "Appliance",
-  other: "Other",
 };
 
 const STATUS_STYLES: Record<MaintenanceStatus, string> = {

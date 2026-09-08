@@ -4,9 +4,12 @@
 // this doesn't belong as a field on Room itself).
 import fs from "fs";
 import path from "path";
+// Category/priority lists + labels live in constants/maintenance.ts (no
+// fs/path import) so client components can import the label map as a value
+// without pulling this file's Node-only mock-store code into their bundle.
+import type { MaintenanceCategory, MaintenancePriority } from "@/constants/maintenance";
+export type { MaintenanceCategory, MaintenancePriority };
 
-export type MaintenanceCategory = "electrical" | "plumbing" | "ac" | "furniture" | "bathroom" | "internet" | "appliance" | "other";
-export type MaintenancePriority = "low" | "normal" | "high" | "urgent";
 export type MaintenanceStatus = "open" | "assigned" | "in-progress" | "waiting" | "resolved" | "closed";
 
 export interface MaintenanceTicket {

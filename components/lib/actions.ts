@@ -18,7 +18,7 @@ import {
   createGroupBookingMock,
   voidFolioMock,
 } from "@/components/lib/mockData";
-import { recordPaymentMock, issueCreditNoteMock } from "@/components/lib/paymentsMock";
+import { recordPaymentMock, issueCreditNoteMock, PAYMENT_METHODS } from "@/components/lib/paymentsMock";
 import type { PaymentMethod, PaymentType } from "@/components/lib/paymentsMock";
 import {
   setOpeningBalanceMock,
@@ -39,6 +39,7 @@ import {
   updateMaintenanceTicketStatusMock,
   assignMaintenanceTechnicianMock,
 } from "@/components/lib/maintenanceMock";
+import { MAINTENANCE_CATEGORIES, MAINTENANCE_PRIORITIES } from "@/constants/maintenance";
 import type { MaintenanceStatus, MaintenanceTicket } from "@/components/lib/maintenanceMock";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
@@ -295,9 +296,9 @@ export async function assignHousekeepingStaffAction(id: string, staffName: strin
 
 const createMaintenanceTicketSchema = z.object({
   roomNumber: z.string().min(1).max(20),
-  category: z.enum(["electrical", "plumbing", "ac", "furniture", "bathroom", "internet", "appliance", "other"]),
+  category: z.enum(MAINTENANCE_CATEGORIES),
   description: z.string().min(1).max(500),
-  priority: z.enum(["low", "normal", "high", "urgent"]),
+  priority: z.enum(MAINTENANCE_PRIORITIES),
 });
 
 export async function createMaintenanceTicketAction(input: {
@@ -347,7 +348,7 @@ export async function assignMaintenanceTechnicianAction(id: string, technician: 
 
 const recordPaymentSchema = z.object({
   bookingId: z.string().min(1),
-  method: z.enum(["cash", "upi", "card", "bank_transfer"]),
+  method: z.enum(PAYMENT_METHODS),
   type: z.enum(["advance", "partial", "full"]),
   amount: z.number().positive().max(1000000),
   note: z.string().max(200).optional().or(z.literal("")),
@@ -377,7 +378,7 @@ export async function recordPaymentAction(input: {
 
 const refundSchema = z.object({
   bookingId: z.string().min(1),
-  method: z.enum(["cash", "upi", "card", "bank_transfer"]),
+  method: z.enum(PAYMENT_METHODS),
   amount: z.number().positive().max(1000000),
   reason: z.string().min(1).max(300),
 });

@@ -1,13 +1,9 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFileCsv, faEnvelope, faReceipt } from "@fortawesome/free-solid-svg-icons";
-import { getDashboardStatsMock, listBookingsMock, listFoliosMock } from "@/components/lib/mockData";
+import { getDashboardStatsMock, listBookingsMock, listFoliosMock, nightsBetween, gstRateForRoomRate } from "@/components/lib/mockData";
 import { computeBookingBalanceMock } from "@/components/lib/paymentsMock";
 import { Button } from "@/components/ui/Button";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
-
-function nightsBetween(checkIn: string, checkOut: string): number {
-  return Math.max(1, Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000));
-}
 
 export default function ReportsPage() {
   const stats = getDashboardStatsMock();
@@ -21,8 +17,7 @@ export default function ReportsPage() {
     .map((b) => {
       const nights = nightsBetween(b.checkIn, b.checkOut);
       const serviceTotal = (b.extraServices ?? []).reduce((sum, s) => sum + s.amount, 0);
-      // Same 12%/18% slab math as generateFolioMock, without persisting a folio.
-      const gstRate = b.amount / nights > 7500 ? 18 : 12;
+      const gstRate = gstRateForRoomRate(b.amount / nights);
       const roomTotalInclGst = Math.round(b.amount * (1 + gstRate / 100));
       const totalDue = roomTotalInclGst + serviceTotal;
       const balance = computeBookingBalanceMock(b.id, totalDue);

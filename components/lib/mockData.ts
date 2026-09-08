@@ -46,7 +46,10 @@ function newId(store: Store, prefix: string): string {
   return `${prefix}${store.nextId}`;
 }
 
-function nightsBetween(checkIn: string, checkOut: string): number {
+// Exported — this exact nights calculation was independently re-implemented
+// on /reports before being consolidated here; see RULES.md's "single source
+// of truth" rule.
+export function nightsBetween(checkIn: string, checkOut: string): number {
   const ms = new Date(checkOut).getTime() - new Date(checkIn).getTime();
   return Math.max(1, Math.round(ms / (1000 * 60 * 60 * 24)));
 }
@@ -487,7 +490,11 @@ const GST_HIGH_RATE = 18;
 const GST_THRESHOLD = 7500;
 const SAC_CODE_ACCOMMODATION = "996311";
 
-function gstRateForRoomRate(roomRatePerNight: number): number {
+// Exported so anywhere else that needs to preview/report GST (e.g. /reports'
+// outstanding-amount math) computes it from this one slab rule instead of
+// re-declaring the 7,500 threshold — see RULES.md's "no hardcoded, single
+// source of truth" rule.
+export function gstRateForRoomRate(roomRatePerNight: number): number {
   return roomRatePerNight > GST_THRESHOLD ? GST_HIGH_RATE : GST_LOW_RATE;
 }
 
