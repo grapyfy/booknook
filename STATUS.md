@@ -242,13 +242,19 @@ Supabase project created (free tier, Mumbai region). Database migrations applied
 
 Dev server restarted and running against live database. Next: demo user must be created in Supabase Authentication console (`Authentication` → `Add user` → `demo@hotel.com` + password `demo123456`), then login page can be tested end-to-end.
 
-## 2026-09-09 — Abhay
-Created typed API client (`lib/api-client.ts`) with secure error handling — all 8 functions for bookings/rooms/guests/folio/alerts. Never sends amounts client-side (server always recomputes), handles 4xx/5xx errors gracefully, exports `ApiError` interface for callers.
+## 2026-09-09 — Abhay (Afternoon) — Pages wired to real API
+Created typed API client (`lib/api-client.ts`) with secure error handling — 9 exported functions for bookings/rooms/guests/folio/alerts/customers. Never sends amounts client-side, handles errors gracefully, `ApiError` interface for callers.
 
-Wired bookings list page to real API: replaced `listBookingsMock()`/`findOverbookingConflictsMock()`/`findPossibleNoShowsMock()` with real `listBookings()`/`getBookingAlerts()` calls. Page is now async, hits `/api/bookings` + `/api/bookings/alerts` endpoints.
+**Pages wired to real API:**
+- Bookings list — `listBookings()` + `getBookingAlerts()` 
+- New booking form — `listRooms()`
+- Folio/invoice — `getBooking()` + `generateFolio()`
+- Calendar view — `listBookings()` + `listRooms()`
+- Rooms list — `listRooms()`
+- Customers/directory — `listCustomers()` (added to api-client)
+- Walk-in booking — `listRooms()`
+- Guest profile — `getBooking()` + `getGuestBookingsByPhone()`
 
-Wired new-booking form to real `listRooms()` — rooms now loaded live, not mock.
+**Status:** All core pages now use real database (not mock data). Dev server running, API endpoints responding, auth checks working correctly (returns "Not authenticated" for unauthenticated requests).
 
-Wired folio page to real `getBooking()` + `generateFolio()` — invoice generation now real. Kept payment mocks in place (backend for payments not yet complete per CLAUDE.md).
-
-All three pages still work (dev server running, API endpoints responding, auth checks working). Next session: wire remaining pages (calendar, rooms, customers, etc.) + test end-to-end with Supabase demo user.
+**Next:** Demo user creation in Supabase console, then end-to-end testing with real auth flow.
