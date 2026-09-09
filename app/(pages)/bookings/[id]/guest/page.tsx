@@ -2,9 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faIdCard, faPhone, faEnvelope, faFileInvoice } from "@fortawesome/free-solid-svg-icons";
-import { getBooking, getGuestBookingsByPhone } from "@/lib/api-client";
+import { getBooking } from "@/services/bookingService";
+import { getBookingsByGuestPhone } from "@/services/guestService";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import type { Guest } from "@/types/booking";
+import type { Guest, Booking } from "@/types/booking";
 
 const ID_TYPE_LABELS: Record<NonNullable<Guest["idType"]>, string> = {
   aadhaar: "Aadhaar",
@@ -16,11 +17,12 @@ const ID_TYPE_LABELS: Record<NonNullable<Guest["idType"]>, string> = {
 
 export default async function GuestProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const booking = await getBooking(id);
+  const booking = (await getBooking(id)) as Booking | null;
   if (!booking) notFound();
 
   const { guest } = booking;
-  const historyRaw = await getGuestBookingsByPhone(guest.phone); const history = historyRaw.filter((b) => b.id !== booking.id);
+  const historyRaw = await getBookingsByGuestPhone(guest.phone);
+  const history = historyRaw.filter((b) => b.id !== booking.id);
 
   return (
     <div className="flex flex-col gap-6 max-w-2xl">

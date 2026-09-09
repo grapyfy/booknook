@@ -17,3 +17,4 @@ next-env.d.ts
 .mock-store-payments.json
 .mock-store-cash-register.json
 .mock-store-channel-inventory.json
+.env*

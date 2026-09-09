@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPlus, faFileInvoice, faCalendarXmark, faTriangleExclamation, faNoteSticky } from "@fortawesome/free-solid-svg-icons";
-import { listBookings, getBookingAlerts } from "@/lib/api-client";
+import { listBookings, findOverbookingConflicts, findPossibleNoShows } from "@/services/bookingService";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
@@ -29,9 +29,21 @@ export default async function BookingsPage({
 
   const allBookings = await listBookings();
   const bookings = status === "all" ? allBookings : allBookings.filter((b) => b.status === status);
-  const alerts = await getBookingAlerts();
-  const conflicts = alerts.overbookingConflicts || [];
-  const possibleNoShows = alerts.possibleNoShows || [];
+
+  const [overbookingConflicts, possibleNoShows] = await Promise.all([
+    findOverbookingConflicts(),
+    findPossibleNoShows(),
+  ]);
+  const bookingById = new Map(allBookings.map((b) => [b.id, b]));
+  // findOverbookingConflicts returns bookingIds (not full booking objects) —
+  // resolve them against the bookings we already fetched.
+  const conflicts = overbookingConflicts
+    .map((c) => ({
+      roomNumber: c.roomNumber,
+      a: bookingById.get(c.bookingIds[0]),
+      b: bookingById.get(c.bookingIds[1]),
+    }))
+    .filter((c): c is { roomNumber: string; a: Booking; b: Booking } => !!c.a && !!c.b);
 
   return (
     <div className="flex flex-col gap-4">

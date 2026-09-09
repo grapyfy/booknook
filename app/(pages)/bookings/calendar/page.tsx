@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPlus, faChevronLeft, faChevronRight } from "@fortawesome/free-solid-svg-icons";
-import { listBookings, listRooms } from "@/lib/api-client";
+import { listBookings } from "@/services/bookingService";
+import { listRooms } from "@/services/roomService";
 import { Button } from "@/components/ui/Button";
 import { BookingsViewToggle } from "@/components/BookingsViewToggle";
 import { CalendarGrid } from "@/components/CalendarGrid";

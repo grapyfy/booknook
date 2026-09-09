@@ -1,4 +1,4 @@
-import { listRooms } from "@/lib/api-client";
+import { listRooms } from "@/services/roomService";
 import { NewBookingForm } from "@/components/forms/NewBookingForm";
 
 export default async function NewBookingPage() {

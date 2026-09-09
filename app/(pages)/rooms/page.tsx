@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPlus } from "@fortawesome/free-solid-svg-icons";
-import { listRooms } from "@/lib/api-client";
+import { listRooms } from "@/services/roomService";
 import { Button } from "@/components/ui/Button";
 
 export default async function RoomsPage() {
