@@ -115,3 +115,10 @@ export async function getBookingAlerts() {
   const res = await apiFetch("/api/bookings/alerts");
   return res.json();
 }
+
+// Customers
+export async function listCustomers(search?: string) {
+  const url = search ? `/api/customers?search=${encodeURIComponent(search)}` : "/api/customers";
+  const res = await apiFetch(url);
+  return res.json();
+}

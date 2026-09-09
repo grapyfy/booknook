@@ -4,7 +4,7 @@ import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { CustomersTable } from "@/components/CustomersTable";
 
 export default async function CustomersPage() {
-  const customers = await listCustomers();
+  const customers = listCustomersMock();
 
   return (
     <div className="flex flex-col gap-4">

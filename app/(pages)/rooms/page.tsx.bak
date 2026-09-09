@@ -5,7 +5,7 @@ import { listRooms } from "@/lib/api-client";
 import { Button } from "@/components/ui/Button";
 
 export default async function RoomsPage() {
-  const rooms = await listRooms();
+  const rooms = listRoomsMock();
 
   return (
     <div className="flex flex-col gap-4">

@@ -36,7 +36,7 @@ export default async function BookingsCalendarPage({
   const nextStart = toISODate(new Date(new Date(startDate).setDate(startDate.getDate() + shiftDays)));
 
   const bookings = await listBookings();
-  const rooms = await listRooms();
+  const rooms = listRoomsMock();
 
   return (
     <div className="flex flex-col gap-4">
