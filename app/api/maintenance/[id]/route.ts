@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { assignTechnician, updateTicketStatus } from "@/services/maintenanceService";
+import { requireStaff } from "@/lib/require-staff";
 
 const schema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("assign"), staffId: z.string().uuid() }),
@@ -14,6 +15,9 @@ const schema = z.discriminatedUnion("action", [
 ]);
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireStaff();
+  if (auth.error) return auth.error;
+
   const { id } = await params;
   const json = await req.json();
   const parsed = schema.safeParse(json);

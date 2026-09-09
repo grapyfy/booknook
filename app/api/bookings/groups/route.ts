@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createGroupBooking } from "@/services/bookingService";
+import { requireStaff } from "@/lib/require-staff";
 
 const schema = z.object({
   groupName: z.string().min(1).max(120),
@@ -18,6 +19,9 @@ const schema = z.object({
 // All-or-nothing — if any room fails (doesn't exist, inactive), none of them get
 // created. See bookingService.createGroupBooking (a real Prisma transaction).
 export async function POST(req: NextRequest) {
+  const auth = await requireStaff();
+  if (auth.error) return auth.error;
+
   const json = await req.json();
   const parsed = schema.safeParse(json);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });

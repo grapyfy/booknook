@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOccupancyReport } from "@/services/reportsService";
+import { requireStaff } from "@/lib/require-staff";
 
 function toCsv(report: Awaited<ReturnType<typeof getOccupancyReport>>): string {
   const summaryRows = [
@@ -23,6 +24,9 @@ function toCsv(report: Awaited<ReturnType<typeof getOccupancyReport>>): string {
 
 // Defaults to the last 7 days (matches the dashboard's window) if no range is given.
 export async function GET(req: NextRequest) {
+  const auth = await requireStaff();
+  if (auth.error) return auth.error;
+
   const startParam = req.nextUrl.searchParams.get("start");
   const endParam = req.nextUrl.searchParams.get("end");
   const format = req.nextUrl.searchParams.get("format"); // "csv" or omitted (json)

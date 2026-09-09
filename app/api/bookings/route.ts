@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { listBookings, createBooking } from "@/services/bookingService";
+import { requireStaff } from "@/lib/require-staff";
 
 export async function GET() {
+  const auth = await requireStaff();
+  if (auth.error) return auth.error;
+
   const bookings = await listBookings();
   return NextResponse.json(bookings);
 }
@@ -34,6 +38,9 @@ const createBookingSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  const auth = await requireStaff();
+  if (auth.error) return auth.error;
+
   const json = await req.json();
   const parsed = createBookingSchema.safeParse(json);
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { advanceTaskStatus, assignTask, updateTaskDetails } from "@/services/housekeepingService";
+import { requireStaff } from "@/lib/require-staff";
 
 // One PATCH endpoint, `action` picks the operation — keeps the transition-enforcement
 // (advance) separate from plain field edits (assign/details), matching how the UI
@@ -16,6 +17,9 @@ const schema = z.discriminatedUnion("action", [
 ]);
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireStaff();
+  if (auth.error) return auth.error;
+
   const { id } = await params;
   const json = await req.json();
   const parsed = schema.safeParse(json);

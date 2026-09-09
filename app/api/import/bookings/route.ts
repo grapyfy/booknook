@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { importBookingsFromCsv } from "@/services/importService";
+import { requireStaff } from "@/lib/require-staff";
 
 // Accepts a CSV file upload (multipart/form-data, field name "file") and returns the
 // "Nothing Lost" report: every row is either imported or flagged with a specific reason —
 // nothing is silently dropped. See CLAUDE.md / PRD Module J.
 export async function POST(req: NextRequest) {
+  const auth = await requireStaff();
+  if (auth.error) return auth.error;
+
   const formData = await req.formData();
   const file = formData.get("file");
 

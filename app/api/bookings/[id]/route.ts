@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getBooking, rescheduleBooking } from "@/services/bookingService";
+import { requireStaff } from "@/lib/require-staff";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireStaff();
+  if (auth.error) return auth.error;
+
   const { id } = await params;
   const booking = await getBooking(id);
   if (!booking) return NextResponse.json({ error: "Booking not found" }, { status: 404 });
@@ -18,6 +22,9 @@ const rescheduleSchema = z.object({
 // Covers extend/shorten stay, move room, and calendar drag-and-drop — all the same
 // operation underneath. See bookingService.rescheduleBooking.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireStaff();
+  if (auth.error) return auth.error;
+
   const { id } = await params;
   const json = await req.json();
   const parsed = rescheduleSchema.safeParse(json);
