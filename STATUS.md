@@ -241,3 +241,14 @@ Login UX + Supabase database live. Added "Email yaad rakho" (`localStorage`) che
 Supabase project created (free tier, Mumbai region). Database migrations applied successfully: all 9 migration files ran in order (original + security hardening pass + front-desk depth + new modules + billing/payments). Schema is now **live and in-sync** with the `prisma/schema.prisma` — 30+ tables, enums, relations, indexes all created. Supabase credentials wired to `.env` and `.env.local` (note: the correct host is `db.tapcxqglvwyuyejqlukn.supabase.co`, not just `supabase.co` — caught and fixed mid-connection-failure).
 
 Dev server restarted and running against live database. Next: demo user must be created in Supabase Authentication console (`Authentication` → `Add user` → `demo@hotel.com` + password `demo123456`), then login page can be tested end-to-end.
+
+## 2026-09-09 — Abhay
+Created typed API client (`lib/api-client.ts`) with secure error handling — all 8 functions for bookings/rooms/guests/folio/alerts. Never sends amounts client-side (server always recomputes), handles 4xx/5xx errors gracefully, exports `ApiError` interface for callers.
+
+Wired bookings list page to real API: replaced `listBookingsMock()`/`findOverbookingConflictsMock()`/`findPossibleNoShowsMock()` with real `listBookings()`/`getBookingAlerts()` calls. Page is now async, hits `/api/bookings` + `/api/bookings/alerts` endpoints.
+
+Wired new-booking form to real `listRooms()` — rooms now loaded live, not mock.
+
+Wired folio page to real `getBooking()` + `generateFolio()` — invoice generation now real. Kept payment mocks in place (backend for payments not yet complete per CLAUDE.md).
+
+All three pages still work (dev server running, API endpoints responding, auth checks working). Next session: wire remaining pages (calendar, rooms, customers, etc.) + test end-to-end with Supabase demo user.
