@@ -20,7 +20,7 @@ export default async function GuestProfilePage({ params }: { params: Promise<{ i
   if (!booking) notFound();
 
   const { guest } = booking;
-  const historyRaw = await getGuestBookingsByPhone(guest.phone); const history = historyRaw.filter((b) => b.id !== booking.id);
+  const history = getGuestBookingsByPhoneMock(guest.phone).filter((b) => b.id !== booking.id);
 
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
