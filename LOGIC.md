@@ -1,4 +1,4 @@
-# BookNook — UI Logic Reference
+# GRAP — UI Logic Reference
 
 Living document. Every button, link, computed number, and chart in the UI is described here — what it does, which function it calls, and exactly how any displayed number is calculated. **Update this file in the same commit/session as any change to behavior** — a stale entry here is worse than no entry, so if you change a formula or a button's action, fix its description here too.
 

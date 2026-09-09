@@ -1,4 +1,4 @@
-# BookNook — Status Log
+# GRAP — Status Log
 
 Append-only. Whichever AI session (either person's) does meaningful work or lands a decision writes its own dated entry here — not the human. Read this before starting work, alongside CLAUDE.md.
 
@@ -7,7 +7,7 @@ Locked v1 scope, payment model (BYOG), team workflow, week 1-8 plan (all in Abha
 
 Project scaffolded: Next.js 15 + TypeScript + Tailwind, PostgreSQL via Supabase + Prisma (switched from Firebase — see CLAUDE.md "Tech stack" for why). First data contract (`types/booking.ts`) + matching Prisma schema (`prisma/schema.prisma`) written. Stub booking API (`app/api/bookings/route.ts`, zod-validated) and a mock-data dashboard screen (`app/dashboard/page.tsx`) both build clean (`npm run build` passes, no TypeScript errors). No real Supabase project connected yet — `.env.example` lists what's needed.
 
-Working name: BookNook (was "StayGrid" in early planning — provisional).
+Working name: GRAP (was "StayGrid" in early planning — provisional).
 
 ## 2026-08-31 — Abhay
 Real Supabase project connected (Mumbai/ap-south-1 region). First migration applied (`prisma/migrations/20260831083531_init`) — `Booking` and `Guest` tables now exist for real. Verified end-to-end: `GET`/`POST /api/bookings` tested against the live database, both work. Repo pushed to GitHub (`github.com/abhayyy-singh/booknook`, private).
@@ -17,7 +17,7 @@ Two Supabase+Prisma gotchas hit and documented in CLAUDE.md — worth reading be
 ## 2026-08-31 — Abhay
 Login built (Supabase Auth + a `Staff` table with roles). Two roles actually enforced for v1 — `OWNER` and `FRONT_DESK` — the other 4 PRD roles (accountant, housekeeping) exist in the schema but aren't wired to any screen yet, since those features aren't built. No public signup — staff logins are provisioned via `scripts/create-staff.js`. Dashboard is now behind `middleware.ts` (redirects to `/login` if not authenticated) and shows the real logged-in staff member's name/role instead of mock data. Verified end-to-end with a real browser (Playwright): login → redirect → dashboard renders correctly, screenshotted.
 
-Installed the `@supabase/server` skill (`.agents/skills/`) — mostly for Supabase Edge Functions, which BookNook doesn't use, but it flagged our Supabase key env-var names were the old "anon"/"service_role" style; renamed to current "publishable"/"secret" naming.
+Installed the `@supabase/server` skill (`.agents/skills/`) — mostly for Supabase Edge Functions, which GRAP doesn't use, but it flagged our Supabase key env-var names were the old "anon"/"service_role" style; renamed to current "publishable"/"secret" naming.
 
 ## 2026-08-31 — Abhay
 GST billing done (backend-only — no UI work today, staying in the backend/logic lane per the team split, see CLAUDE.md). New `Folio` table: 12%/18% GST slab based on the room's per-night rate (not the total), CGST+SGST split (assumes intra-state for v1 — IGST for inter-state guests is deferred, needs guest billing-state capture which isn't built), fixed SAC code 996311, auto invoice numbering (`BN-2026-00001`), idempotent (calling it twice on the same booking never double-bills). `Booking` now stores `roomRatePerNight` separately from the total `amount` — needed because the GST slab depends on the nightly rate, not the total.
@@ -95,7 +95,7 @@ I built it that way. Every stub screen carries a visible `IllustrativeBanner` sa
 
 **Also added**: a real (functional, not decorative) topbar search — calls a new `searchMockAction` Server Action in `components/lib/actions.ts` rather than a new `app/api/` route, since that folder stays off-limits; a notification bell that honestly shows "No notifications yet" instead of fabricating alerts; week navigation + guest/status filtering on the bookings calendar; the dashboard Minimal/Detailed toggle (`?view=detailed`), which also introduces two new real metrics — ADR and RevPAR, both computed from actual mock booking data, formulas in `LOGIC.md`.
 
-**Didn't fabricate**: booking "source/channel" field (Booking has none, so Reports shows revenue-by-room instead of the reference's OTA-vs-Direct split, until/unless that's a real contract addition), fake room photos, a fake logged-in staff name, real multi-property switching (the reference has one; BookNook's schema has no property/tenant concept at all — building that would mean inventing an entire data model with zero grounding, so it was skipped rather than faked).
+**Didn't fabricate**: booking "source/channel" field (Booking has none, so Reports shows revenue-by-room instead of the reference's OTA-vs-Direct split, until/unless that's a real contract addition), fake room photos, a fake logged-in staff name, real multi-property switching (the reference has one; GRAP's schema has no property/tenant concept at all — building that would mean inventing an entire data model with zero grounding, so it was skipped rather than faked).
 
 Verified the same way as parts 1-3 — real headless-browser pass across every new screen plus the interactive bits (search, filters, tab switching, CSV export, message-preview modal). One assertion in my own test script flaked on timing (customer search looked like it failed a check that a re-run confirmed works fine) — noting only so nobody rediscovers the same false alarm.
 

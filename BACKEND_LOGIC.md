@@ -1,4 +1,4 @@
-# BookNook — Backend Logic Reference
+# GRAP — Backend Logic Reference
 
 Living document, same convention as `LOGIC.md` (the UI's equivalent) — every service function and API route described here: what it does, what it enforces, and exactly how any stored number is computed. **Update this file in the same commit/session as any behavior change.**
 

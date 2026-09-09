@@ -1,11 +1,11 @@
-# BookNook — Project Rules
+# GRAP — Project Rules
 
-Working name as of 2026-08-31 (provisional, may change again). Everywhere below that says "StayGrid" refers to the same product — the original PRD and early planning docs use that name, not renamed throughout yet.
+**Final name, confirmed 2026-09-09** (was "StayGrid" in the original PRD/early planning, then briefly "BookNook" — both retired). Everywhere in this repo/memory that still says "StayGrid" or "BookNook" refers to the same product — not every historical doc has been swept for the old names, don't assume finding one means the name changed again.
 
 Shared source of truth for anyone (or any AI tool — Claude, Cursor, Copilot, whatever) working on this repo — Abhay (backend/logic) and teammate (UI), currently 2 people. This file lives at the repo root and is meant to be read start-to-finish by a new person/AI picking up the project for the first time.
 
 ## What this is
-StayGrid India — WhatsApp-first, UPI-first hotel PMS + channel manager for independent Indian hotels (10–200 rooms). Full PRD: `StayGrid_India_PRD_v1_1.md` in this folder — treat it as the north star vision, not the v1 spec (see scope below).
+GRAP — WhatsApp-first, UPI-first hotel PMS + channel manager for independent Indian hotels (10–200 rooms). Full PRD: `StayGrid_India_PRD_v1_1.md` in this folder (filename kept as-is, historical — it's still the north star vision doc, not renamed since renaming the file would break every existing reference to it). Treat it as the vision, not the v1 spec (see scope below).
 
 ## Getting started (read this first, whoever you are)
 

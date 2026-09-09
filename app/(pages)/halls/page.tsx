@@ -22,7 +22,7 @@ export default async function HallsPage({
         <p className="text-sm text-neutral-500">Hourly venue calendar for banquet halls and meeting rooms.</p>
       </div>
       <IllustrativeBanner>
-        Read-only illustration — banquet/event booking isn&apos;t in BookNook&apos;s v1 scope yet. Sample data only, no
+        Read-only illustration — banquet/event booking isn&apos;t in GRAP&apos;s v1 scope yet. Sample data only, no
         create/edit flow.
       </IllustrativeBanner>
       <HallsGrid venues={venues} events={events} date={date} />

@@ -40,7 +40,7 @@ export default function LoginPage() {
           <span className="h-10 w-10 rounded-lg bg-blue-600 text-white flex items-center justify-center text-lg font-bold">
             B
           </span>
-          <h1 className="text-xl font-semibold">BookNook</h1>
+          <h1 className="text-xl font-semibold">GRAP</h1>
           <p className="text-sm text-neutral-500">Front desk login</p>
         </div>
         <FormField label="Email" htmlFor="email">

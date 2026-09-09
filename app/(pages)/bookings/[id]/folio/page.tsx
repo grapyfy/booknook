@@ -43,7 +43,7 @@ export default async function FolioPage({ params }: { params: Promise<{ id: stri
   const balance = computeBookingBalanceMock(booking.id, grandTotal);
   const voidedFolios = listFoliosMock().filter((f) => f.bookingId === booking.id && f.voided);
 
-  const whatsappPreview = `Hi ${booking.guest.name}, your booking at BookNook is confirmed!\nRoom ${booking.roomNumber} · ${booking.checkIn} to ${booking.checkOut}\nTotal: ₹${folio.totalAmount.toLocaleString("en-IN")} (incl. GST)\nInvoice: ${folio.invoiceNumber}`;
+  const whatsappPreview = `Hi ${booking.guest.name}, your booking at GRAP is confirmed!\nRoom ${booking.roomNumber} · ${booking.checkIn} to ${booking.checkOut}\nTotal: ₹${folio.totalAmount.toLocaleString("en-IN")} (incl. GST)\nInvoice: ${folio.invoiceNumber}`;
 
   return (
     <div className="flex flex-col gap-6 max-w-2xl">

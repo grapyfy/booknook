@@ -50,7 +50,7 @@ export function ChannelInventoryMatrix({ roomTypes, entries }: { roomTypes: stri
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <p className="text-xs text-neutral-400">
-          Click a cell to toggle. This updates BookNook&apos;s own record only — no real OTA is connected, so nothing
+          Click a cell to toggle. This updates GRAP&apos;s own record only — no real OTA is connected, so nothing
           is actually pushed anywhere.
         </p>
         <button

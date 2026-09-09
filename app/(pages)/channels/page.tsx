@@ -22,7 +22,7 @@ export default function ChannelsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold">Channels & integrations</h1>
-          <p className="text-sm text-neutral-500">Which OTA partners BookNook is built to support.</p>
+          <p className="text-sm text-neutral-500">Which OTA partners GRAP is built to support.</p>
         </div>
         <SyncNowButton />
       </div>

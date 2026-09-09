@@ -4,7 +4,7 @@ import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "BookNook",
+  title: "GRAP",
   description: "Front desk, billing, and guest messaging for independent hotels.",
 };
 
