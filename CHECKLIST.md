@@ -33,6 +33,23 @@ Legend: ✅ Done · ⚠️ Partial / needs verification · ❌ Not done, real ga
 
 ---
 
+## Security, round 2 — items not already covered above
+
+Second list the founder sourced (a 10-point checklist + 8 "vibe-coded app" vulnerability categories + mitigations). Only the items genuinely new vs. the table above are repeated here — rate limiting, secrets, uploads, SQL injection, dependency auditing, and auth sessions are already covered by #2/#7/#9/#11/#14/#17/#18 above, not duplicated.
+
+| Item | Status | Note |
+|---|---|---|
+| CORS restricted to trusted origins | ✅ | Verified: no `Access-Control-Allow-Origin` header anywhere in the codebase. Next.js Route Handlers send no CORS headers by default, so the browser's same-origin policy blocks cross-origin calls automatically — correct posture for a private tool with no third-party API consumers. |
+| Security headers (CSP, HSTS, X-Frame-Options, etc.) | ✅ | **Real gap, fixed 2026-09-09** — added to `next.config.js`: CSP, `Strict-Transport-Security`, `X-Frame-Options: DENY` (blocks clickjacking), `X-Content-Type-Options: nosniff`, `Referrer-Policy`. |
+| Logging/alerting on auth events | ⚠️ | **Real gap, partially fixed 2026-09-09** — `lib/require-staff.ts` now logs failed auth attempts (no user / inactive account) with enough context to spot a pattern, nothing sensitive logged. Real *alerting* (paging on a pattern, not just a log line) needs a monitoring account (BetterStack or similar) — not set up blind, flagged for when there's a real production deployment. |
+| Client-side-only authentication | ✅ N/A | Login goes through Supabase Auth (server-verified session cookies); every protected read/write is re-checked server-side (`requireStaff`) regardless of what the client claims — no client-side gate stands in for the real check. |
+| SSRF (server-side request forgery) | ✅ N/A | No code anywhere fetches a URL that came from user input — no attack surface for it currently. |
+| Hallucinated or outdated dependencies | ✅ N/A | Every dependency is a real, well-known package from the npm registry (Next.js, Prisma, Supabase, zod, papaparse, Tailwind, FontAwesome, Geist) — none invented, all present in `package-lock.json`. |
+| Fully pinned dependencies | ⚠️ | `@prisma/client`, `prisma`, `zod`, `react`, `react-dom` are exact-pinned. `next`, `@supabase/ssr`, `@supabase/supabase-js`, `papaparse`, `geist`, FontAwesome packages use `^` ranges — `package-lock.json` (already committed) prevents *unexpected* drift on a normal install, but a `^` range still means the next intentional `npm install` could pull a newer minor/patch. Not a live hole, a secondary hardening step worth a conscious decision later. |
+| Secret manager (Vault, AWS Secrets Manager) | ➖ | Enterprise-scale overhead this project doesn't need yet — secrets live in Vercel's env var dashboard once deployed, the standard mechanism for this stack. |
+
+---
+
 ## UI polish ("16 things every vibecoder needs") — filtered for a staff dashboard, not a marketing site
 
 | Item | Status | Note |
@@ -83,10 +100,12 @@ Legend: ✅ Done · ⚠️ Partial / needs verification · ❌ Not done, real ga
 ---
 
 ## Bottom line — what's left to act on
-Done 2026-09-09: rate limiting (booking creation + CSV import), CSV file-size cap, favicon, `robots.txt`.
+Done 2026-09-09: rate limiting (booking creation + CSV import), CSV file-size cap, favicon, `robots.txt`, security headers (CSP/HSTS/etc.), basic auth-event logging.
 
 Still open, in rough priority order:
 1. **Privacy policy + terms pages** — not urgent for pilot/design-partner hotels, but a real blocker before onboarding a hotel that isn't a personal favor.
-2. **Toast notifications + skeleton loaders** — verify these once real API calls replace mock actions (can't meaningfully test loading states against instant mock data).
-3. **Password visibility toggle, copy button, skip-to-content** — small, easy wins whenever there's a quiet moment.
-4. Everything marked ➖ is correctly not-yet-relevant — don't build it speculatively, re-check this table when the thing that would make it relevant (a public booking page, multi-property support, file uploads) actually gets built.
+2. **Real alerting** (not just logs) on auth events — needs a monitoring account, set up once there's a real production deployment.
+3. **Full rate-limit coverage** across all write endpoints, not just the two highest-value ones.
+4. **Toast notifications + skeleton loaders** — verify these once real API calls replace mock actions (can't meaningfully test loading states against instant mock data).
+5. **Password visibility toggle, copy button, skip-to-content** — small, easy wins whenever there's a quiet moment.
+6. Everything marked ➖ is correctly not-yet-relevant — don't build it speculatively, re-check this table when the thing that would make it relevant (a public booking page, multi-property support, file uploads) actually gets built.
