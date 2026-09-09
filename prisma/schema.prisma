@@ -298,6 +298,14 @@ enum MaintenanceStatus {
   CLOSED
 }
 
+// Fixed-window rate limiting, DB-backed — the exact pattern proven on the last
+// project (see CLAUDE.md's "Rate limiting" note), applied here for real this time.
+model RateLimit {
+  key       String   @id
+  count     Int
+  windowEnd DateTime
+}
+
 // Single row per property (v1 is one property, not a chain) — hotel's own details
 // for GST invoices and the Settings > Property tab. Enforced as a singleton in
 // settingsService (always reads/writes the one row), not at the schema level —

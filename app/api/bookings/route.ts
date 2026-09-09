@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { listBookings, createBooking } from "@/services/bookingService";
 import { requireStaff } from "@/lib/require-staff";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function GET() {
   const auth = await requireStaff();
@@ -40,6 +41,11 @@ const createBookingSchema = z.object({
 export async function POST(req: NextRequest) {
   const auth = await requireStaff();
   if (auth.error) return auth.error;
+
+  // 30 bookings/minute per staff account — generous for real front-desk use,
+  // tight enough to blunt a compromised-account bulk-abuse scenario.
+  const limited = await checkRateLimit(`booking_create_${auth.staff.id}`, 30, 60_000);
+  if (limited) return NextResponse.json({ error: "Too many bookings created too quickly — slow down" }, { status: 429 });
 
   const json = await req.json();
   const parsed = createBookingSchema.safeParse(json);
