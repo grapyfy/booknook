@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPlus, faFileInvoice, faCalendarXmark, faTriangleExclamation, faNoteSticky } from "@fortawesome/free-solid-svg-icons";
-import { listBookingsMock, findOverbookingConflictsMock, findPossibleNoShowsMock } from "@/components/lib/mockData";
+import { listBookings, getBookingAlerts } from "@/lib/api-client";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
@@ -27,10 +27,11 @@ export default async function BookingsPage({
   const { status: statusParam } = await searchParams;
   const status = STATUS_OPTIONS.some((o) => o.value === statusParam) ? (statusParam as (typeof STATUS_OPTIONS)[number]["value"]) : "all";
 
-  const allBookings = listBookingsMock();
+  const allBookings = await listBookings();
   const bookings = status === "all" ? allBookings : allBookings.filter((b) => b.status === status);
-  const conflicts = findOverbookingConflictsMock();
-  const possibleNoShows = findPossibleNoShowsMock();
+  const alerts = await getBookingAlerts();
+  const conflicts = alerts.overbookingConflicts || [];
+  const possibleNoShows = alerts.possibleNoShows || [];
 
   return (
     <div className="flex flex-col gap-4">

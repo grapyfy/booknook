@@ -30,7 +30,7 @@ export default async function FolioPage({ params }: { params: Promise<{ id: stri
 
   // Same idempotent generate-or-fetch pattern as the real
   // POST /api/bookings/:id/folio — safe to land on this page repeatedly.
-  const folio = await generateFolio(id);
+  const folio = generateFolioMock(id);
 
   const nights = nightsBetween(booking.checkIn, booking.checkOut);
   const perNightRate = Math.round(booking.amount / nights);
