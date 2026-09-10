@@ -8,7 +8,6 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import {
   createBookingMock,
-  createRoomMock,
   generateFolioMock,
   importCsvMock,
   updateBookingStatusMock,
@@ -18,6 +17,7 @@ import {
   createGroupBookingMock,
   voidFolioMock,
 } from "@/components/lib/mockData";
+import { createRoom } from "@/services/roomService";
 import { recordPaymentMock, issueCreditNoteMock } from "@/components/lib/paymentsMock";
 import type { PaymentMethod, PaymentType } from "@/components/lib/paymentsMock";
 import {
@@ -204,7 +204,7 @@ export async function createRoomAction(input: {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid room details" };
   }
   try {
-    createRoomMock(parsed.data);
+    await createRoom(parsed.data);
   } catch {
     return { ok: false, error: "Room number already exists" };
   }
