@@ -7,17 +7,15 @@ import { z } from "zod";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import {
-  createBookingMock,
   generateFolioMock,
   importCsvMock,
-  updateBookingStatusMock,
   listBookingsMock,
   listRoomsMock,
-  rescheduleBookingMock,
   createGroupBookingMock,
   voidFolioMock,
 } from "@/components/lib/mockData";
 import { createRoom } from "@/services/roomService";
+import { createBooking, rescheduleBooking, updateBookingStatus } from "@/services/bookingService";
 import { recordPaymentMock, issueCreditNoteMock } from "@/components/lib/paymentsMock";
 import type { PaymentMethod, PaymentType } from "@/components/lib/paymentsMock";
 import {
@@ -85,7 +83,7 @@ export async function createBookingAction(input: {
   }
   let bookingId: string;
   try {
-    const booking = createBookingMock({
+    const booking = await createBooking({
       ...parsed.data,
       guest: {
         ...parsed.data.guest,
@@ -117,7 +115,7 @@ export async function createWalkInBookingAction(input: {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid booking details" };
   }
   try {
-    createBookingMock({
+    await createBooking({
       ...parsed.data,
       guest: {
         ...parsed.data.guest,
@@ -152,6 +150,12 @@ const createGroupBookingSchema = z.object({
     .min(2, "A group booking needs at least 2 rooms"),
 });
 
+// Deliberately still on mock: the UI lets each room in a group have its own
+// check-in/check-out (per-room rows), but the real bookingService.createGroupBooking
+// only accepts one shared date range for the whole group. Adapting by collapsing to
+// one room's dates would silently drop real user input for the others — a "Nothing
+// Lost" violation, not an honest simplification. Needs the real service extended to
+// accept per-room dates before this can safely move off mock.
 export async function createGroupBookingAction(input: {
   groupName: string;
   contact: { name: string; phone: string; email?: string };
@@ -177,7 +181,7 @@ export async function rescheduleBookingAction(
   updates: { roomNumber?: string; checkIn?: string; checkOut?: string }
 ): Promise<ActionResult> {
   try {
-    rescheduleBookingMock(id, updates);
+    await rescheduleBooking(id, updates);
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not reschedule booking" };
   }
@@ -213,7 +217,7 @@ export async function createRoomAction(input: {
 
 export async function updateBookingStatusAction(id: string, nextStatus: Booking["status"]): Promise<ActionResult> {
   try {
-    updateBookingStatusMock(id, nextStatus);
+    await updateBookingStatus(id, nextStatus);
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not update booking" };
   }
