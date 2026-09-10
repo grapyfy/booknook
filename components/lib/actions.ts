@@ -14,7 +14,7 @@ import {
   voidFolioMock,
 } from "@/components/lib/mockData";
 import { createRoom } from "@/services/roomService";
-import { createBooking, rescheduleBooking, updateBookingStatus, createGroupBooking } from "@/services/bookingService";
+import { createBooking, rescheduleBooking, updateBookingStatus, createGroupBooking, undoBookingStatus } from "@/services/bookingService";
 import { requireStaffForAction } from "@/lib/require-staff";
 import { logAction } from "@/services/auditLogService";
 import { recordPaymentMock, issueCreditNoteMock } from "@/components/lib/paymentsMock";
@@ -265,6 +265,29 @@ export async function updateBookingStatusAction(id: string, nextStatus: Booking[
     await logAction({ staffId: staff.id, action: "booking.status_change", entityType: "Booking", entityId: id, details: { to: nextStatus } });
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not update booking" };
+  }
+  revalidatePath("/bookings");
+  revalidatePath("/bookings/calendar");
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+// Safety-net undo, one step back only (check-in or check-out), blocked once a
+// folio exists for the booking — see bookingService.undoBookingStatus for the
+// full reasoning. Separate from updateBookingStatusAction on purpose so the
+// audit log can distinguish "reverted a mis-click" from a normal lifecycle move.
+export async function undoBookingStatusAction(id: string): Promise<ActionResult> {
+  let staff;
+  try {
+    staff = await requireStaffForAction();
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Not authenticated" };
+  }
+  try {
+    const booking = await undoBookingStatus(id);
+    await logAction({ staffId: staff.id, action: "booking.undo_status", entityType: "Booking", entityId: id, details: { revertedTo: booking.status } });
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not undo" };
   }
   revalidatePath("/bookings");
   revalidatePath("/bookings/calendar");

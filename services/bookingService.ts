@@ -264,6 +264,36 @@ export async function updateBookingStatus(id: string, next: Booking["status"]): 
   return toContractShape(row);
 }
 
+// Confirmed scope (safety-net undo, not a general status editor): reverses a
+// mis-click on check-in or check-out, one step back only, listed explicitly here
+// rather than derived from ALLOWED_TRANSITIONS so undo can never silently gain a
+// new direction just because the forward transition table changes later.
+const UNDO_TRANSITIONS: Partial<Record<BookingStatus, BookingStatus>> = {
+  CHECKED_IN: "CONFIRMED", // undo a check-in
+  CHECKED_OUT: "CHECKED_IN", // undo a check-out
+};
+
+// A real financial record (a folio was generated) locks the booking against undo —
+// reversing "checked out" after an invoice was issued for that stay would leave a
+// folio on record for a stay that supposedly hasn't ended, which is exactly the
+// kind of confusion "status revert only, never after a real record exists" (the
+// confirmed scope for this feature) exists to prevent. A real "void" flow — not
+// undo — is the correct tool once a financial record exists; that's a separate,
+// explicit action, not this one.
+export async function undoBookingStatus(id: string): Promise<Booking> {
+  const existing = await db.booking.findUniqueOrThrow({ where: { id } });
+  const target = UNDO_TRANSITIONS[existing.status];
+  if (!target) {
+    throw new Error(`Cannot undo a ${existing.status.toLowerCase()} booking — nothing to revert to`);
+  }
+  const folio = await db.folio.findUnique({ where: { bookingId: id }, select: { id: true } });
+  if (folio) {
+    throw new Error("Cannot undo — an invoice has already been generated for this booking. Use void/reissue instead.");
+  }
+  const row = await db.booking.update({ where: { id }, data: { status: target }, include: INCLUDE });
+  return toContractShape(row);
+}
+
 // N rooms under one contact, all sharing a BookingGroup — all-or-nothing: if any room
 // in the group fails validation (e.g. a nonexistent room, one that's unavailable),
 // NONE of them get created. A Prisma interactive transaction is the right tool for

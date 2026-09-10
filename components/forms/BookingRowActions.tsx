@@ -3,8 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faRightToBracket, faRightFromBracket, faBan, faUserXmark, faCheck, faCalendarPlus } from "@fortawesome/free-solid-svg-icons";
-import { updateBookingStatusAction, rescheduleBookingAction } from "@/components/lib/actions";
+import { faRightToBracket, faRightFromBracket, faBan, faUserXmark, faCheck, faCalendarPlus, faRotateLeft } from "@fortawesome/free-solid-svg-icons";
+import { updateBookingStatusAction, rescheduleBookingAction, undoBookingStatusAction } from "@/components/lib/actions";
 import type { Booking } from "@/types/booking";
 
 function addDays(date: string, days: number): string {
@@ -34,6 +34,18 @@ export function BookingRowActions({ id, status, checkOut }: { id: string; status
     setError(null);
     startTransition(async () => {
       const result = await rescheduleBookingAction(id, { checkOut: addDays(checkOut, 1) });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      router.refresh();
+    });
+  }
+
+  function undo() {
+    setError(null);
+    startTransition(async () => {
+      const result = await undoBookingStatusAction(id);
       if (!result.ok) {
         setError(result.error);
         return;
@@ -119,7 +131,25 @@ export function BookingRowActions({ id, status, checkOut }: { id: string; status
           >
             <FontAwesomeIcon icon={faRightFromBracket} className="h-3.5 w-3.5" />
           </button>
+          <button
+            onClick={undo}
+            disabled={pending}
+            title="Undo check-in (back to confirmed)"
+            className="text-neutral-400 hover:text-amber-700 disabled:opacity-50"
+          >
+            <FontAwesomeIcon icon={faRotateLeft} className="h-3.5 w-3.5" />
+          </button>
         </>
+      )}
+      {status === "checked-out" && (
+        <button
+          onClick={undo}
+          disabled={pending}
+          title="Undo check-out (back to checked-in) — only available before an invoice has been generated"
+          className="text-neutral-400 hover:text-amber-700 disabled:opacity-50"
+        >
+          <FontAwesomeIcon icon={faRotateLeft} className="h-3.5 w-3.5" />
+        </button>
       )}
     </div>
   );
