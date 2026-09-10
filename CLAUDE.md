@@ -9,10 +9,10 @@ GRAP — WhatsApp-first, UPI-first hotel PMS + channel manager for independent I
 
 ## Getting started (read this first, whoever you are)
 
-Repo: `https://github.com/abhayyy-singh/booknook` (private).
+Repo: `https://github.com/grapyfy/booknook` (public — moved from `abhayyy-singh/booknook` 2026-09-10, see STATUS.md for why; the old URL still redirects but don't rely on that).
 
 ```bash
-git clone https://github.com/abhayyy-singh/booknook.git
+git clone https://github.com/grapyfy/booknook.git
 cd booknook
 npm install
 npm run dev   # http://localhost:3000
