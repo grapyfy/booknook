@@ -117,6 +117,7 @@ export async function createWalkInBookingAction(input: {
   checkOut: string;
   roomNumber: string;
   notes?: string;
+  paymentStatus?: "prepaid" | "postpaid" | "partial";
 }): Promise<ActionResult> {
   let staff;
   try {

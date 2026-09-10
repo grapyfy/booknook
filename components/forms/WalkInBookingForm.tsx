@@ -9,6 +9,19 @@ import { Button } from "@/components/ui/Button";
 import { FormField, Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import type { Room } from "@/types/room";
+import type { Booking } from "@/types/booking";
+
+interface GstConfig {
+  thresholdRupees: number;
+  lowRatePercent: number;
+  highRatePercent: number;
+}
+
+const PAYMENT_STATUS_OPTIONS: { value: NonNullable<Booking["paymentStatus"]>; label: string }[] = [
+  { value: "postpaid", label: "Postpaid — pay at checkout" },
+  { value: "prepaid", label: "Prepaid — already paid in full" },
+  { value: "partial", label: "Partially paid" },
+];
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
@@ -20,7 +33,7 @@ function tomorrowISO(): string {
   return d.toISOString().slice(0, 10);
 }
 
-export function WalkInBookingForm({ rooms }: { rooms: Room[] }) {
+export function WalkInBookingForm({ rooms, gstConfig }: { rooms: Room[]; gstConfig: GstConfig }) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -28,6 +41,7 @@ export function WalkInBookingForm({ rooms }: { rooms: Room[] }) {
   const [checkOut, setCheckOut] = useState(tomorrowISO());
   const [roomNumber, setRoomNumber] = useState(rooms.find((r) => r.active)?.roomNumber ?? "");
   const [notes, setNotes] = useState("");
+  const [paymentStatus, setPaymentStatus] = useState<NonNullable<Booking["paymentStatus"]>>("postpaid");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -66,7 +80,13 @@ export function WalkInBookingForm({ rooms }: { rooms: Room[] }) {
     checkIn && checkOut
       ? Math.max(1, Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000))
       : 0;
-  const estimatedAmount = selectedRoom ? selectedRoom.ratePerNight * nights : 0;
+  const ratePerNight = selectedRoom?.ratePerNight ?? 0;
+  const subtotal = ratePerNight * nights;
+  // Same real, configured GST slab as NewBookingForm (never a hardcoded duplicate) —
+  // preview only, generateFolio recomputes this for real on save.
+  const gstRate = ratePerNight > gstConfig.thresholdRupees ? gstConfig.highRatePercent : gstConfig.lowRatePercent;
+  const gstAmount = Math.round((subtotal * gstRate) / 100);
+  const estimatedAmount = subtotal + gstAmount;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -78,6 +98,7 @@ export function WalkInBookingForm({ rooms }: { rooms: Room[] }) {
       checkOut,
       roomNumber,
       notes: notes || undefined,
+      paymentStatus,
     });
     setSubmitting(false);
     if (result && !result.ok) {
@@ -143,11 +164,38 @@ export function WalkInBookingForm({ rooms }: { rooms: Room[] }) {
         )}
       </FormField>
 
+      <FormField label="Payment status" htmlFor="paymentStatus">
+        <Select
+          id="paymentStatus"
+          value={paymentStatus}
+          onChange={(e) => setPaymentStatus(e.target.value as NonNullable<Booking["paymentStatus"]>)}
+        >
+          {PAYMENT_STATUS_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </Select>
+      </FormField>
+
       {nights > 0 && selectedRoom && (
-        <p className="text-sm text-neutral-500">
-          {nights} night{nights > 1 ? "s" : ""} × ₹{selectedRoom.ratePerNight} ≈ ₹
-          {estimatedAmount.toLocaleString("en-IN")} (estimate — final amount is computed on save)
-        </p>
+        <div className="text-sm text-neutral-500 font-mono">
+          <div className="flex justify-between">
+            <span className="font-sans">
+              {nights} night{nights > 1 ? "s" : ""} × ₹{ratePerNight.toLocaleString("en-IN")}
+            </span>
+            <span>₹{subtotal.toLocaleString("en-IN")}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="font-sans">GST ({gstRate}%)</span>
+            <span>₹{gstAmount.toLocaleString("en-IN")}</span>
+          </div>
+          <div className="flex justify-between font-semibold text-neutral-900">
+            <span className="font-sans">Total (incl. GST)</span>
+            <span>₹{estimatedAmount.toLocaleString("en-IN")}</span>
+          </div>
+          <p className="text-xs text-neutral-400 font-sans mt-1">Estimate — final invoice is generated on save.</p>
+        </div>
       )}
 
       <FormField label="Notes (optional)" htmlFor="notes">

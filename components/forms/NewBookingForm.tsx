@@ -30,7 +30,13 @@ interface ServiceRow {
   amount: string;
 }
 
-export function NewBookingForm({ rooms }: { rooms: Room[] }) {
+interface GstConfig {
+  thresholdRupees: number;
+  lowRatePercent: number;
+  highRatePercent: number;
+}
+
+export function NewBookingForm({ rooms, gstConfig }: { rooms: Room[]; gstConfig: GstConfig }) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -101,11 +107,18 @@ export function NewBookingForm({ rooms }: { rooms: Room[] }) {
   const discountRaw = discountType === "percent" ? (subtotal * (Number(discount) || 0)) / 100 : Number(discount) || 0;
   const discountValue = Math.min(Math.max(discountRaw, 0), subtotal);
   const servicesTotal = services.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
-  // Client-side preview only — the server (mock or real) always recomputes
-  // this from the room's actual rate + the same clamped formula. Never trust
-  // this number; it's just so front desk sees the total before saving.
+  // Client-side preview only — the server (billingService.generateFolio) always
+  // recomputes this from the booking's actual stored amount using the same
+  // real, configured GST slab (never a hardcoded duplicate — see gstConfig prop).
+  // Never trust this number; it's just so front desk sees a real tax-inclusive
+  // total before saving, matching what the folio will actually show.
   const roomTotal = subtotal - discountValue;
-  const grandTotal = roomTotal + servicesTotal;
+  const gstRate = effectiveRate > gstConfig.thresholdRupees ? gstConfig.highRatePercent : gstConfig.lowRatePercent;
+  const gstAmount = Math.round((roomTotal * gstRate) / 100);
+  const roomTotalWithTax = roomTotal + gstAmount;
+  // Extra services aren't run through GST in the real invoice yet (billing-depth
+  // phase, see BACKEND_LOGIC.md) — matching that here rather than implying they are.
+  const grandTotal = roomTotalWithTax + servicesTotal;
 
   function updateService(i: number, patch: Partial<ServiceRow>) {
     setServices((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
@@ -353,9 +366,17 @@ export function NewBookingForm({ rooms }: { rooms: Room[] }) {
                 <span>-₹{discountValue.toLocaleString("en-IN")}</span>
               </div>
             )}
+            <div className="flex justify-between text-neutral-500">
+              <span className="font-sans">GST ({gstRate}%)</span>
+              <span>₹{gstAmount.toLocaleString("en-IN")}</span>
+            </div>
+            <div className="flex justify-between text-neutral-700">
+              <span className="font-sans">Room total (incl. GST)</span>
+              <span>₹{roomTotalWithTax.toLocaleString("en-IN")}</span>
+            </div>
             {servicesTotal > 0 && (
               <div className="flex justify-between text-neutral-500">
-                <span className="font-sans">Services</span>
+                <span className="font-sans">Services (not GST'd yet)</span>
                 <span>₹{servicesTotal.toLocaleString("en-IN")}</span>
               </div>
             )}
@@ -364,7 +385,7 @@ export function NewBookingForm({ rooms }: { rooms: Room[] }) {
               <span>₹{grandTotal.toLocaleString("en-IN")}</span>
             </div>
             <p className="text-xs text-neutral-400 font-sans">
-              Estimate — the final amount + GST invoice are computed on save.
+              Estimate using the hotel&apos;s configured GST slab — the final invoice is generated on save.
             </p>
           </div>
         )}

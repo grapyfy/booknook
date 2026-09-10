@@ -11,7 +11,21 @@ export async function getPropertySettings() {
   return db.propertySettings.create({ data: { hotelName: "", address: "" } });
 }
 
-export async function updatePropertySettings(input: { hotelName: string; address: string; gstNumber?: string; phone?: string }) {
+export async function updatePropertySettings(input: {
+  hotelName: string;
+  address: string;
+  gstNumber?: string;
+  phone?: string;
+  // Optional — omitted fields keep their current value. These three exist so an
+  // owner can update them when GST law changes (government-notified slabs, not a
+  // business choice); see billingService.ts and the schema comment on
+  // PropertySettings for why this isn't a free-form "set any %" field in spirit,
+  // even though nothing at the type level stops an unreasonable number — that's
+  // enforced by not exposing a UI for it beyond what CBIC actually publishes.
+  gstThresholdRupees?: number;
+  gstLowRatePercent?: number;
+  gstHighRatePercent?: number;
+}) {
   const existing = await getPropertySettings();
   return db.propertySettings.update({ where: { id: existing.id }, data: input });
 }
