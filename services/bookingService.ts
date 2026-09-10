@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import type { Prisma, BookingStatus, BookingSource, PaymentStatus } from "@prisma/client";
 import type { Booking } from "@/types/booking";
 import { getActiveRoomRate, assertRoomAvailable } from "@/services/roomService";
+import { computeNightlyPricing } from "@/services/rateRuleService";
 
 function nightsBetween(checkIn: string, checkOut: string): number {
   const ms = new Date(checkOut).getTime() - new Date(checkIn).getTime();
@@ -141,9 +142,23 @@ export async function createBooking(input: CreateBookingInput): Promise<Booking>
     await assertRoomAvailable(input.roomNumber, input.checkIn, input.checkOut);
   }
 
-  const nights = nightsBetween(input.checkIn, input.checkOut);
-  const effectiveRate = input.rateOverride && input.rateOverride > 0 ? input.rateOverride : roomRatePerNight;
-  const subtotal = effectiveRate * nights;
+  // An explicit rate override IS the final negotiated nightly rate a staff member
+  // chose — dynamic pricing rules (weekend/festival surcharges) apply to the room's
+  // list rate, not on top of a manual override, same logic as "the sticker price
+  // moves automatically, a manually agreed price doesn't get a surcharge added to it."
+  let subtotal: number;
+  let effectiveRate: number;
+  let nights: number;
+  if (input.rateOverride && input.rateOverride > 0) {
+    nights = nightsBetween(input.checkIn, input.checkOut);
+    effectiveRate = input.rateOverride;
+    subtotal = effectiveRate * nights;
+  } else {
+    const pricing = await computeNightlyPricing(roomRatePerNight, input.checkIn, input.checkOut);
+    subtotal = pricing.subtotal;
+    effectiveRate = pricing.averageRatePerNight;
+    nights = pricing.nights;
+  }
   const discountAmount = Math.min(Math.max(input.discountAmount ?? 0, 0), subtotal);
   const amount = subtotal - discountAmount;
 
@@ -203,11 +218,19 @@ export async function rescheduleBooking(
     await assertRoomAvailable(roomNumber, checkIn, checkOut, id);
   }
 
-  const roomRatePerNight = await getActiveRoomRate(roomNumber);
-  const nights = nightsBetween(checkIn, checkOut);
+  // Same nightly-rate-rule pricing as a fresh createBooking. Note: this was already
+  // true before rate rules existed — reschedule has always recomputed from the
+  // room's current list rate rather than preserving whatever rate the original
+  // booking had, so a booking created with a manual rate override doesn't keep
+  // that override across a reschedule (no field currently distinguishes "this rate
+  // was overridden" from "this rate came from the list+rules" — flagging as a real,
+  // pre-existing limitation, not something new here).
+  const baseRate = await getActiveRoomRate(roomNumber);
+  const pricing = await computeNightlyPricing(baseRate, checkIn, checkOut);
+  const { subtotal } = pricing;
+  const roomRatePerNight = pricing.averageRatePerNight;
   // A previously-applied discount is preserved in absolute rupees, but never allowed to
   // exceed the new subtotal (e.g. shortening a stay could otherwise make it negative).
-  const subtotal = roomRatePerNight * nights;
   const discountAmount = Math.min(existing.discountAmount ?? 0, subtotal);
   const amount = subtotal - discountAmount;
 
