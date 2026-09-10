@@ -27,6 +27,7 @@ model Staff {
 
   assignedHousekeepingTasks HousekeepingTask[]
   assignedMaintenanceTickets MaintenanceTicket[]
+  auditLogs AuditLog[]
 }
 
 // All 6 roles from the PRD are listed so the schema doesn't need a migration later.
@@ -316,5 +317,67 @@ model PropertySettings {
   address    String
   gstNumber  String?
   phone      String?
+  // GST accommodation slab — government-notified (CBIC), not a business choice a
+  // hotel makes freely. These three numbers exist so an owner can update them
+  // WHEN THE LAW CHANGES (it has before) without a developer touching code, not
+  // so any arbitrary % can be typed in. billingService reads these instead of
+  // the previously-hardcoded 12/18/7500 constants.
+  gstThresholdRupees Int @default(7500)
+  gstLowRatePercent  Int @default(12)
+  gstHighRatePercent Int @default(18)
   updatedAt  DateTime @updatedAt
+}
+
+// Real audit trail — every meaningful staff action, not just auth failures
+// (lib/require-staff.ts already logs those separately). `details` carries
+// whatever's useful for that specific action (e.g. {from, to} for a status
+// change) — deliberately untyped JSON since the shape varies per action,
+// same tradeoff Prisma's own Json type is meant for.
+model AuditLog {
+  id         String   @id @default(uuid())
+  staff      Staff?   @relation(fields: [staffId], references: [id])
+  staffId    String?
+  action     String   // e.g. "booking.create", "booking.status_change", "booking.void"
+  entityType String   // e.g. "Booking", "Room", "Folio"
+  entityId   String
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([staffId])
+  @@index([createdAt])
+}
+
+// Automatic rate adjustments — weekly (e.g. weekend surcharge) or a specific
+// festival/date-range hike, applied on top of a room's list rate at booking time.
+// Deliberately separate from Room.ratePerNight (the base list rate never changes
+// here) — a rule stacks a % or flat ₹ adjustment on top, and createBooking picks
+// the single highest-priority matching rule rather than stacking multiple.
+model RateRule {
+  id             String       @id @default(uuid())
+  name           String       // e.g. "Weekend surcharge", "Diwali week"
+  type           RateRuleType
+  // WEEKLY: daysOfWeek is used (0=Sunday..6=Saturday), startDate/endDate ignored.
+  // DATE_RANGE: startDate/endDate used, daysOfWeek ignored.
+  daysOfWeek     Int[]        @default([])
+  startDate      DateTime?
+  endDate        DateTime?
+  adjustmentType RateAdjustmentType
+  adjustmentValue Int         // percent (0-100) or flat rupees, per adjustmentType
+  active         Boolean      @default(true)
+  // Higher priority wins when more than one rule matches the same night — e.g. a
+  // festival-week rule should win over a generic weekend rule for the same date.
+  priority       Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+enum RateRuleType {
+  WEEKLY
+  DATE_RANGE
+}
+
+enum RateAdjustmentType {
+  PERCENT
+  FLAT
 }

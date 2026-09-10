@@ -49,3 +49,30 @@ export async function requireOwner() {
   }
   return auth;
 }
+
+// Server Actions (components/lib/actions.ts) call this instead of requireStaff() —
+// they don't go through a route handler, so nothing was checking auth on them at
+// all before this existed (a real gap: Next.js Server Actions are reachable as
+// their own POST endpoint even without rendering the page that calls them).
+// Returns the staff record directly and throws a plain Error on failure, matching
+// how actions.ts already wraps its bodies in try/catch and turns an Error into an
+// ActionResult — no NextResponse involved, since a Server Action isn't a route.
+export async function requireStaffForAction() {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    logAuthFailure("no_session");
+    throw new Error("Not authenticated");
+  }
+
+  const staff = await getStaffBySupabaseUserId(user.id);
+  if (!staff || !staff.active) {
+    logAuthFailure("inactive_staff", { supabaseUserId: user.id });
+    throw new Error("Not an active staff account");
+  }
+
+  return staff;
+}

@@ -15,6 +15,8 @@ import {
 } from "@/components/lib/mockData";
 import { createRoom } from "@/services/roomService";
 import { createBooking, rescheduleBooking, updateBookingStatus, createGroupBooking } from "@/services/bookingService";
+import { requireStaffForAction } from "@/lib/require-staff";
+import { logAction } from "@/services/auditLogService";
 import { recordPaymentMock, issueCreditNoteMock } from "@/components/lib/paymentsMock";
 import type { PaymentMethod, PaymentType } from "@/components/lib/paymentsMock";
 import {
@@ -76,6 +78,12 @@ export async function createBookingAction(input: {
   paymentStatus?: "prepaid" | "postpaid" | "partial";
   priceNote?: string;
 }): Promise<ActionResult> {
+  let staff;
+  try {
+    staff = await requireStaffForAction();
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Not authenticated" };
+  }
   const parsed = createBookingSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid booking details" };
@@ -94,6 +102,7 @@ export async function createBookingAction(input: {
       source: "direct",
     });
     bookingId = booking.id;
+    await logAction({ staffId: staff.id, action: "booking.create", entityType: "Booking", entityId: booking.id, details: { roomNumber: booking.roomNumber, amount: booking.amount } });
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not create booking" };
   }
@@ -109,12 +118,18 @@ export async function createWalkInBookingAction(input: {
   roomNumber: string;
   notes?: string;
 }): Promise<ActionResult> {
+  let staff;
+  try {
+    staff = await requireStaffForAction();
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Not authenticated" };
+  }
   const parsed = createWalkInSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid booking details" };
   }
   try {
-    await createBooking({
+    const booking = await createBooking({
       ...parsed.data,
       guest: {
         ...parsed.data.guest,
@@ -125,6 +140,7 @@ export async function createWalkInBookingAction(input: {
       source: "walk-in",
       initialStatus: "checked-in",
     });
+    await logAction({ staffId: staff.id, action: "booking.create_walkin", entityType: "Booking", entityId: booking.id, details: { roomNumber: booking.roomNumber } });
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not create walk-in booking" };
   }
@@ -154,15 +170,28 @@ export async function createGroupBookingAction(input: {
   contact: { name: string; phone: string; email?: string };
   rooms: { roomNumber: string; checkIn: string; checkOut: string }[];
 }): Promise<ActionResult> {
+  let staff;
+  try {
+    staff = await requireStaffForAction();
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Not authenticated" };
+  }
   const parsed = createGroupBookingSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid group booking details" };
   }
   try {
-    await createGroupBooking({
+    const bookings = await createGroupBooking({
       groupName: parsed.data.groupName,
       guest: { ...parsed.data.contact, email: parsed.data.contact.email || undefined },
       rooms: parsed.data.rooms,
+    });
+    await logAction({
+      staffId: staff.id,
+      action: "booking.create_group",
+      entityType: "BookingGroup",
+      entityId: bookings[0]?.groupId ?? "unknown",
+      details: { groupName: parsed.data.groupName, roomCount: bookings.length },
     });
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not create group booking" };
@@ -174,8 +203,15 @@ export async function rescheduleBookingAction(
   id: string,
   updates: { roomNumber?: string; checkIn?: string; checkOut?: string }
 ): Promise<ActionResult> {
+  let staff;
+  try {
+    staff = await requireStaffForAction();
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Not authenticated" };
+  }
   try {
     await rescheduleBooking(id, updates);
+    await logAction({ staffId: staff.id, action: "booking.reschedule", entityType: "Booking", entityId: id, details: updates });
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not reschedule booking" };
   }
@@ -197,12 +233,19 @@ export async function createRoomAction(input: {
   roomType: string;
   ratePerNight: number;
 }): Promise<ActionResult> {
+  let staff;
+  try {
+    staff = await requireStaffForAction();
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Not authenticated" };
+  }
   const parsed = createRoomSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid room details" };
   }
   try {
-    await createRoom(parsed.data);
+    const room = await createRoom(parsed.data);
+    await logAction({ staffId: staff.id, action: "room.create", entityType: "Room", entityId: room.id, details: { roomNumber: room.roomNumber } });
   } catch {
     return { ok: false, error: "Room number already exists" };
   }
@@ -210,8 +253,15 @@ export async function createRoomAction(input: {
 }
 
 export async function updateBookingStatusAction(id: string, nextStatus: Booking["status"]): Promise<ActionResult> {
+  let staff;
+  try {
+    staff = await requireStaffForAction();
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Not authenticated" };
+  }
   try {
     await updateBookingStatus(id, nextStatus);
+    await logAction({ staffId: staff.id, action: "booking.status_change", entityType: "Booking", entityId: id, details: { to: nextStatus } });
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not update booking" };
   }
