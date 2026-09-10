@@ -10,9 +10,17 @@ const schema = z.object({
     phone: z.string().regex(/^\+?[0-9]{10,15}$/, "Invalid phone number"),
     email: z.string().email().optional(),
   }),
-  checkIn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  checkOut: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  roomNumbers: z.array(z.string().min(1).max(20)).min(2, "A group booking needs at least 2 rooms"),
+  // Each room carries its own dates — a group isn't necessarily one shared
+  // check-in/check-out for everyone (see bookingService.createGroupBooking).
+  rooms: z
+    .array(
+      z.object({
+        roomNumber: z.string().min(1).max(20),
+        checkIn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        checkOut: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      })
+    )
+    .min(2, "A group booking needs at least 2 rooms"),
   source: z.enum(["direct", "walk-in", "phone", "other"]).optional(),
 });
 

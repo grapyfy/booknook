@@ -11,11 +11,10 @@ import {
   importCsvMock,
   listBookingsMock,
   listRoomsMock,
-  createGroupBookingMock,
   voidFolioMock,
 } from "@/components/lib/mockData";
 import { createRoom } from "@/services/roomService";
-import { createBooking, rescheduleBooking, updateBookingStatus } from "@/services/bookingService";
+import { createBooking, rescheduleBooking, updateBookingStatus, createGroupBooking } from "@/services/bookingService";
 import { recordPaymentMock, issueCreditNoteMock } from "@/components/lib/paymentsMock";
 import type { PaymentMethod, PaymentType } from "@/components/lib/paymentsMock";
 import {
@@ -150,12 +149,6 @@ const createGroupBookingSchema = z.object({
     .min(2, "A group booking needs at least 2 rooms"),
 });
 
-// Deliberately still on mock: the UI lets each room in a group have its own
-// check-in/check-out (per-room rows), but the real bookingService.createGroupBooking
-// only accepts one shared date range for the whole group. Adapting by collapsing to
-// one room's dates would silently drop real user input for the others — a "Nothing
-// Lost" violation, not an honest simplification. Needs the real service extended to
-// accept per-room dates before this can safely move off mock.
 export async function createGroupBookingAction(input: {
   groupName: string;
   contact: { name: string; phone: string; email?: string };
@@ -166,9 +159,10 @@ export async function createGroupBookingAction(input: {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid group booking details" };
   }
   try {
-    createGroupBookingMock({
-      ...parsed.data,
-      contact: { ...parsed.data.contact, email: parsed.data.contact.email || undefined },
+    await createGroupBooking({
+      groupName: parsed.data.groupName,
+      guest: { ...parsed.data.contact, email: parsed.data.contact.email || undefined },
+      rooms: parsed.data.rooms,
     });
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not create group booking" };

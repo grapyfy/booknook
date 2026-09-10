@@ -242,30 +242,37 @@ export async function updateBookingStatus(id: string, next: Booking["status"]): 
 }
 
 // N rooms under one contact, all sharing a BookingGroup — all-or-nothing: if any room
-// in the group fails validation (e.g. a nonexistent room), NONE of them get created.
-// A Prisma interactive transaction is the right tool for this, not a manual rollback.
+// in the group fails validation (e.g. a nonexistent room, one that's unavailable),
+// NONE of them get created. A Prisma interactive transaction is the right tool for
+// this, not a manual rollback.
+//
+// Each room carries its OWN check-in/check-out — a group booking isn't necessarily
+// everyone arriving/leaving on the same day (e.g. a wedding party trickling in over
+// a few days), and the UI (GroupBookingForm.tsx) already collects dates per room.
+// An earlier version of this function took one shared date range for the whole
+// group; that was a real contract mismatch with what the UI actually sends —
+// collapsing to one room's dates would have silently discarded the others', which
+// is why this stayed on mock rather than being force-fit. Fixed here instead.
 export async function createGroupBooking(input: {
   groupName: string;
   guest: { name: string; phone: string; email?: string };
-  checkIn: string;
-  checkOut: string;
-  roomNumbers: string[];
+  rooms: { roomNumber: string; checkIn: string; checkOut: string }[];
   source?: NonNullable<Booking["source"]>;
 }): Promise<Booking[]> {
-  if (input.roomNumbers.length < 2) throw new Error("A group booking needs at least 2 rooms");
+  if (input.rooms.length < 2) throw new Error("A group booking needs at least 2 rooms");
 
   return db.$transaction(async (tx) => {
     const group = await tx.bookingGroup.create({ data: { name: input.groupName } });
     const bookings: Booking[] = [];
 
-    for (const roomNumber of input.roomNumbers) {
+    for (const { roomNumber, checkIn, checkOut } of input.rooms) {
       const roomRatePerNight = await getActiveRoomRate(roomNumber, tx);
-      await assertRoomAvailable(roomNumber, input.checkIn, input.checkOut, undefined, tx);
-      const nights = nightsBetween(input.checkIn, input.checkOut);
+      await assertRoomAvailable(roomNumber, checkIn, checkOut, undefined, tx);
+      const nights = nightsBetween(checkIn, checkOut);
       const row = await tx.booking.create({
         data: {
-          checkIn: new Date(input.checkIn),
-          checkOut: new Date(input.checkOut),
+          checkIn: new Date(checkIn),
+          checkOut: new Date(checkOut),
           roomNumber,
           roomRatePerNight,
           amount: roomRatePerNight * nights,
@@ -279,6 +286,31 @@ export async function createGroupBooking(input: {
     }
     return bookings;
   });
+}
+
+export interface GroupBookingSummary {
+  groupId: string;
+  groupName: string;
+  totalRooms: number;
+  totalAmount: number;
+  bookings: Booking[];
+}
+
+// One row per BookingGroup, with its member bookings and a derived total —
+// never stored, always summed fresh from the real per-booking amounts.
+export async function listGroupBookings(): Promise<GroupBookingSummary[]> {
+  const groups = await db.bookingGroup.findMany({
+    include: { bookings: { include: INCLUDE, orderBy: { checkIn: "asc" } } },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return groups.map((g) => ({
+    groupId: g.id,
+    groupName: g.name,
+    totalRooms: g.bookings.length,
+    totalAmount: g.bookings.reduce((sum, b) => sum + b.amount, 0),
+    bookings: g.bookings.map(toContractShape),
+  }));
 }
 
 // Scans confirmed bookings whose room+date range overlaps another booking on the same

@@ -1,8 +1,8 @@
-import { listRoomsMock } from "@/components/lib/mockData";
+import { listRooms } from "@/services/roomService";
 import { GroupBookingForm } from "@/components/forms/GroupBookingForm";
 
-export default function NewGroupBookingPage() {
-  const rooms = listRoomsMock();
+export default async function NewGroupBookingPage() {
+  const rooms = await listRooms();
 
   return (
     <div className="flex flex-col gap-4">
