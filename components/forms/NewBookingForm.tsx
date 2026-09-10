@@ -44,6 +44,7 @@ export function NewBookingForm({ rooms }: { rooms: Room[] }) {
 
   const [overrideRate, setOverrideRate] = useState(false);
   const [customRate, setCustomRate] = useState("");
+  const [discountType, setDiscountType] = useState<"flat" | "percent">("flat");
   const [discount, setDiscount] = useState("");
   const [paymentStatus, setPaymentStatus] = useState<NonNullable<Booking["paymentStatus"]>>("postpaid");
   const [services, setServices] = useState<ServiceRow[]>([]);
@@ -94,7 +95,11 @@ export function NewBookingForm({ rooms }: { rooms: Room[] }) {
   const listRate = selectedRoom?.ratePerNight ?? 0;
   const effectiveRate = overrideRate && Number(customRate) > 0 ? Number(customRate) : listRate;
   const subtotal = effectiveRate * nights;
-  const discountValue = Math.min(Math.max(Number(discount) || 0, 0), subtotal);
+  // Discount can be entered as a flat ₹ or a % — converted to a flat ₹ amount here
+  // before it's ever sent anywhere, so createBookingAction's discountAmount field
+  // (and the server's clamp-to-subtotal logic) don't need to know which was used.
+  const discountRaw = discountType === "percent" ? (subtotal * (Number(discount) || 0)) / 100 : Number(discount) || 0;
+  const discountValue = Math.min(Math.max(discountRaw, 0), subtotal);
   const servicesTotal = services.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
   // Client-side preview only — the server (mock or real) always recomputes
   // this from the room's actual rate + the same clamped formula. Never trust
@@ -129,7 +134,7 @@ export function NewBookingForm({ rooms }: { rooms: Room[] }) {
       roomNumber,
       notes: notes || undefined,
       rateOverride: overrideRate && Number(customRate) > 0 ? Number(customRate) : undefined,
-      discountAmount: Number(discount) > 0 ? Number(discount) : undefined,
+      discountAmount: discountValue > 0 ? Math.round(discountValue) : undefined,
       extraServices: services
         .filter((s) => s.name.trim() && Number(s.amount) > 0)
         .map((s) => ({ name: s.name.trim(), amount: Number(s.amount) })),
@@ -260,8 +265,29 @@ export function NewBookingForm({ rooms }: { rooms: Room[] }) {
           </p>
         )}
 
-        <FormField label="Discount (flat ₹, optional)" htmlFor="discount">
-          <Input id="discount" type="number" min={0} value={discount} onChange={(e) => setDiscount(e.target.value)} />
+        <FormField label="Discount (optional)" htmlFor="discount">
+          <div className="flex gap-2">
+            <Select
+              value={discountType}
+              onChange={(e) => setDiscountType(e.target.value as "flat" | "percent")}
+              className="w-28 shrink-0"
+            >
+              <option value="flat">₹ Flat</option>
+              <option value="percent">% Percent</option>
+            </Select>
+            <Input
+              id="discount"
+              type="number"
+              min={0}
+              max={discountType === "percent" ? 100 : undefined}
+              value={discount}
+              onChange={(e) => setDiscount(e.target.value)}
+              placeholder={discountType === "percent" ? "e.g. 10" : "e.g. 300"}
+            />
+          </div>
+          {discountType === "percent" && discountValue > 0 && (
+            <p className="text-xs text-neutral-500 mt-1">= ₹{Math.round(discountValue).toLocaleString("en-IN")} off</p>
+          )}
         </FormField>
 
         <FormField label="Payment status" htmlFor="paymentStatus">
