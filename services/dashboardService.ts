@@ -16,68 +16,73 @@ export async function getDashboardStats() {
   const startOf7d = new Date(sevenDaysAgo.getFullYear(), sevenDaysAgo.getMonth(), sevenDaysAgo.getDate());
   const startOf14d = new Date(fourteenDaysAgo.getFullYear(), fourteenDaysAgo.getMonth(), fourteenDaysAgo.getDate());
 
-  // Current 7-day bookings
-  const bookings7d = await db.booking.findMany({
-    where: {
-      createdAt: { gte: startOf7d, lt: endOfToday },
-      status: { not: "CANCELLED" },
-    },
-    include: BOOKING_INCLUDE,
-  });
+  // All 6 queries below are independent (none depends on another's result) —
+  // running them in parallel instead of sequentially cuts round-trip latency
+  // roughly 6x, which matters a lot once the DB isn't in the same region as
+  // the function (see STATUS.md's Vercel-region note).
+  const [bookings7d, bookings14d, arrivalsDataRaw, departuresDataRaw, allRooms, checkedInNow, recentBookingsRaw] =
+    await Promise.all([
+      // Current 7-day bookings
+      db.booking.findMany({
+        where: {
+          createdAt: { gte: startOf7d, lt: endOfToday },
+          status: { not: "CANCELLED" },
+        },
+        include: BOOKING_INCLUDE,
+      }),
+      // Previous 7-day bookings (for delta calc)
+      db.booking.findMany({
+        where: {
+          createdAt: { gte: startOf14d, lt: startOf7d },
+          status: { not: "CANCELLED" },
+        },
+        include: BOOKING_INCLUDE,
+      }),
+      // Bookings with check-in today (arrivals)
+      db.booking.findMany({
+        where: {
+          checkIn: { gte: startOfToday, lt: endOfToday },
+          status: { in: ["CONFIRMED", "WAITLISTED"] },
+        },
+        include: BOOKING_INCLUDE,
+      }),
+      // Bookings with check-out today (departures)
+      db.booking.findMany({
+        where: {
+          checkOut: { gte: startOfToday, lt: endOfToday },
+          status: { not: "CANCELLED" },
+        },
+        include: BOOKING_INCLUDE,
+      }),
+      // All rooms (for status breakdown)
+      db.room.findMany(),
+      // Current occupancy
+      db.booking.findMany({
+        where: {
+          status: "CHECKED_IN",
+          checkIn: { lte: today },
+          checkOut: { gt: today },
+        },
+      }),
+      // Recent bookings
+      db.booking.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 4,
+        include: BOOKING_INCLUDE,
+      }),
+    ]);
 
-  // Previous 7-day bookings (for delta calc)
-  const bookings14d = await db.booking.findMany({
-    where: {
-      createdAt: { gte: startOf14d, lt: startOf7d },
-      status: { not: "CANCELLED" },
-    },
-    include: BOOKING_INCLUDE,
-  });
-
-  // Bookings with check-in today (arrivals)
-  const arrivalsDataRaw = await db.booking.findMany({
-    where: {
-      checkIn: {
-        gte: startOfToday,
-        lt: endOfToday,
-      },
-      status: { in: ["CONFIRMED", "WAITLISTED"] },
-    },
-    include: BOOKING_INCLUDE,
-  });
   const arrivalsToday = arrivalsDataRaw.map(b => ({
     ...b,
     status: b.status.toLowerCase() as "confirmed" | "checked-in" | "checked-out" | "cancelled" | "waitlisted" | "no-show",
   })) as unknown as BookingWithGuest[];
 
-  // Bookings with check-out today (departures)
-  const departuresDataRaw = await db.booking.findMany({
-    where: {
-      checkOut: {
-        gte: startOfToday,
-        lt: endOfToday,
-      },
-      status: { not: "CANCELLED" },
-    },
-    include: BOOKING_INCLUDE,
-  });
   const departurestoday = departuresDataRaw.map(b => ({
     ...b,
     status: b.status.toLowerCase() as "confirmed" | "checked-in" | "checked-out" | "cancelled" | "waitlisted" | "no-show",
   })) as unknown as BookingWithGuest[];
 
-  // All rooms (for status breakdown)
-  const allRooms = await db.room.findMany();
   const activeRooms = allRooms.filter(r => r.active);
-
-  // Current occupancy
-  const checkedInNow = await db.booking.findMany({
-    where: {
-      status: "CHECKED_IN",
-      checkIn: { lte: today },
-      checkOut: { gt: today },
-    },
-  });
 
   // Room status breakdown
   const maintenanceCount = allRooms.filter(r => !r.active).length;
@@ -108,12 +113,6 @@ export async function getDashboardStats() {
     ? (totalGuests > 0 ? 100 : 0)
     : Math.round(((totalGuests - totalGuestsPrev) / totalGuestsPrev) * 100);
 
-  // Recent bookings
-  const recentBookingsRaw = await db.booking.findMany({
-    orderBy: { createdAt: "desc" },
-    take: 4,
-    include: BOOKING_INCLUDE,
-  });
   const recentBookings = recentBookingsRaw.map(b => ({
     ...b,
     status: b.status.toLowerCase() as "confirmed" | "checked-in" | "checked-out" | "cancelled" | "waitlisted" | "no-show",
