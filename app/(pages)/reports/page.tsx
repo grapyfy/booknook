@@ -1,7 +1,9 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFileCsv, faEnvelope, faReceipt } from "@fortawesome/free-solid-svg-icons";
-import { getDashboardStatsMock, listBookingsMock, listFoliosMock } from "@/components/lib/mockData";
+import { listFoliosMock } from "@/components/lib/mockData";
 import { computeBookingBalanceMock } from "@/components/lib/paymentsMock";
+import { getDashboardStats } from "@/services/dashboardService";
+import { listBookings } from "@/services/bookingService";
 import { Button } from "@/components/ui/Button";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
 
@@ -9,9 +11,13 @@ function nightsBetween(checkIn: string, checkOut: string): number {
   return Math.max(1, Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000));
 }
 
-export default function ReportsPage() {
-  const stats = getDashboardStatsMock();
-  const bookings = listBookingsMock();
+// occupancy/ADR/RevPAR and the booking list are real (dashboardService/bookingService).
+// GSTR-1 export and outstanding-balance still read from the mock payments/folio layer —
+// the real Payment/CreditNote backend isn't built yet (flagged in STATUS.md's
+// "Billing/Payments depth" gap, not something silently skipped here).
+export default async function ReportsPage() {
+  const stats = await getDashboardStats();
+  const bookings = await listBookings();
 
   // Outstanding balance across every non-cancelled booking — the folio total
   // (room + GST) is the same total the folio page bills against, so this is
