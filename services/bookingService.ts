@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import type { Prisma, BookingStatus, BookingSource, PaymentStatus } from "@prisma/client";
 import type { Booking } from "@/types/booking";
-import { getActiveRoomRate } from "@/services/roomService";
+import { getActiveRoomRate, assertRoomAvailable } from "@/services/roomService";
 
 function nightsBetween(checkIn: string, checkOut: string): number {
   const ms = new Date(checkOut).getTime() - new Date(checkIn).getTime();
@@ -132,6 +132,15 @@ export interface CreateBookingInput {
 
 export async function createBooking(input: CreateBookingInput): Promise<Booking> {
   const roomRatePerNight = await getActiveRoomRate(input.roomNumber);
+
+  // A waitlisted booking is explicitly for when a room ISN'T available (that's the
+  // point of a waitlist) — only enforce real availability for a booking that will
+  // actually hold inventory (confirmed/checked-in, the default when unspecified).
+  const status = input.initialStatus ? STATUS_FROM_CONTRACT[input.initialStatus] : "CONFIRMED";
+  if (status === "CONFIRMED" || status === "CHECKED_IN") {
+    await assertRoomAvailable(input.roomNumber, input.checkIn, input.checkOut);
+  }
+
   const nights = nightsBetween(input.checkIn, input.checkOut);
   const effectiveRate = input.rateOverride && input.rateOverride > 0 ? input.rateOverride : roomRatePerNight;
   const subtotal = effectiveRate * nights;
@@ -145,7 +154,7 @@ export async function createBooking(input: CreateBookingInput): Promise<Booking>
       roomNumber: input.roomNumber,
       roomRatePerNight: effectiveRate, // the rate actually charged, not the room's list rate — see schema comment
       amount,
-      status: input.initialStatus ? STATUS_FROM_CONTRACT[input.initialStatus] : "CONFIRMED",
+      status,
       source: input.source ? SOURCE_FROM_CONTRACT[input.source] : undefined,
       notes: input.notes,
       group: input.groupId ? { connect: { id: input.groupId } } : undefined,
@@ -187,6 +196,13 @@ export async function rescheduleBooking(
   const checkIn = updates.checkIn ?? existing.checkIn.toISOString().slice(0, 10);
   const checkOut = updates.checkOut ?? existing.checkOut.toISOString().slice(0, 10);
 
+  // Same real-availability guard as createBooking, only for a booking that actually
+  // holds inventory (WAITLISTED doesn't) — exclude itself, since it currently
+  // occupies its own old slot and we're checking the (possibly new) one.
+  if (existing.status === "CONFIRMED" || existing.status === "CHECKED_IN") {
+    await assertRoomAvailable(roomNumber, checkIn, checkOut, id);
+  }
+
   const roomRatePerNight = await getActiveRoomRate(roomNumber);
   const nights = nightsBetween(checkIn, checkOut);
   // A previously-applied discount is preserved in absolute rupees, but never allowed to
@@ -209,6 +225,17 @@ export async function updateBookingStatus(id: string, next: Booking["status"]): 
   const allowed = ALLOWED_TRANSITIONS[existing.status];
   if (!allowed.includes(nextEnum)) {
     throw new Error(`Cannot move a ${existing.status.toLowerCase()} booking to ${next}`);
+  }
+  // waitlisted -> confirmed is the one transition where a booking starts holding
+  // real inventory for the first time — check the room is actually still free
+  // before confirming it (someone else may have booked it while this was waiting).
+  if (existing.status === "WAITLISTED" && nextEnum === "CONFIRMED") {
+    await assertRoomAvailable(
+      existing.roomNumber,
+      existing.checkIn.toISOString().slice(0, 10),
+      existing.checkOut.toISOString().slice(0, 10),
+      id
+    );
   }
   const row = await db.booking.update({ where: { id }, data: { status: nextEnum }, include: INCLUDE });
   return toContractShape(row);
@@ -233,6 +260,7 @@ export async function createGroupBooking(input: {
 
     for (const roomNumber of input.roomNumbers) {
       const roomRatePerNight = await getActiveRoomRate(roomNumber, tx);
+      await assertRoomAvailable(roomNumber, input.checkIn, input.checkOut, undefined, tx);
       const nights = nightsBetween(input.checkIn, input.checkOut);
       const row = await tx.booking.create({
         data: {
