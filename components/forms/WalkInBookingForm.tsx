@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faCircleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { createWalkInBookingAction } from "@/components/lib/actions";
 import { Button } from "@/components/ui/Button";
 import { FormField, Input } from "@/components/ui/Input";
@@ -29,7 +31,37 @@ export function WalkInBookingForm({ rooms }: { rooms: Room[] }) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Same "fail open, never the only guard" availability check as NewBookingForm —
+  // createWalkInBookingAction's real createBooking call still re-checks server-side.
+  const [availableRoomNumbers, setAvailableRoomNumbers] = useState<Set<string> | null>(null);
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
+
+  useEffect(() => {
+    if (!checkIn || !checkOut || checkOut <= checkIn) {
+      setAvailableRoomNumbers(null);
+      return;
+    }
+    let cancelled = false;
+    setCheckingAvailability(true);
+    fetch(`/api/rooms/available?checkIn=${checkIn}&checkOut=${checkOut}`)
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((data: Room[]) => {
+        if (!cancelled) setAvailableRoomNumbers(new Set(data.map((r) => r.roomNumber)));
+      })
+      .catch(() => {
+        if (!cancelled) setAvailableRoomNumbers(null);
+      })
+      .finally(() => {
+        if (!cancelled) setCheckingAvailability(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [checkIn, checkOut]);
+
   const selectedRoom = rooms.find((r) => r.roomNumber === roomNumber);
+  const selectedRoomUnavailable =
+    availableRoomNumbers !== null && roomNumber !== "" && !availableRoomNumbers.has(roomNumber);
   const nights =
     checkIn && checkOut
       ? Math.max(1, Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000))
@@ -83,12 +115,32 @@ export function WalkInBookingForm({ rooms }: { rooms: Room[] }) {
       </div>
       <FormField label="Room" htmlFor="room">
         <Select id="room" required value={roomNumber} onChange={(e) => setRoomNumber(e.target.value)}>
-          {rooms.map((room) => (
-            <option key={room.id} value={room.roomNumber} disabled={!room.active}>
-              {room.roomNumber} — {room.roomType} · ₹{room.ratePerNight}/night{!room.active ? " (inactive)" : ""}
-            </option>
-          ))}
+          {rooms.map((room) => {
+            const known = availableRoomNumbers !== null;
+            const isAvailable = !known || availableRoomNumbers!.has(room.roomNumber);
+            return (
+              <option key={room.id} value={room.roomNumber} disabled={!room.active}>
+                {room.roomNumber} — {room.roomType} · ₹{room.ratePerNight}/night
+                {!room.active ? " (inactive)" : known && !isAvailable ? " (booked for these dates)" : ""}
+              </option>
+            );
+          })}
         </Select>
+        {checkIn && checkOut && (
+          <p className="text-xs mt-1 text-neutral-500">
+            {checkingAvailability
+              ? "Checking availability…"
+              : availableRoomNumbers !== null
+                ? `${availableRoomNumbers.size} of ${rooms.filter((r) => r.active).length} rooms available for these dates`
+                : null}
+          </p>
+        )}
+        {selectedRoomUnavailable && (
+          <p className="text-xs mt-1 text-red-600 flex items-center gap-1.5">
+            <FontAwesomeIcon icon={faCircleExclamation} className="h-3 w-3" />
+            Room {roomNumber} is already booked for an overlapping date range — pick a different room or dates.
+          </p>
+        )}
       </FormField>
 
       {nights > 0 && selectedRoom && (
