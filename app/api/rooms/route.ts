@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { listRooms, createRoom } from "@/services/roomService";
+import { requireStaff } from "@/lib/require-staff";
 
 export async function GET() {
+  const auth = await requireStaff();
+  if (auth.error) return auth.error;
+
   const rooms = await listRooms();
   return NextResponse.json(rooms);
 }
@@ -14,6 +18,9 @@ const createRoomSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  const auth = await requireStaff();
+  if (auth.error) return auth.error;
+
   const json = await req.json();
   const parsed = createRoomSchema.safeParse(json);
 

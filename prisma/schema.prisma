@@ -24,18 +24,22 @@ model Staff {
   role           StaffRole
   active         Boolean   @default(true)
   createdAt      DateTime  @default(now())
+
+  assignedHousekeepingTasks HousekeepingTask[]
+  assignedMaintenanceTickets MaintenanceTicket[]
+  auditLogs AuditLog[]
 }
 
-// All 6 roles from the PRD are listed so the schema doesn't need a migration later —
-// but only OWNER and FRONT_DESK are actually assignable/enforced in v1. The other 4
-// have no corresponding screens yet (housekeeping, accountant reports aren't built),
-// so there's nothing for them to do — don't build permission checks for unused roles.
+// All 6 roles from the PRD are listed so the schema doesn't need a migration later.
+// Housekeeping roles are now enforced (2026-09-08, module built) — OWNER, FRONT_DESK,
+// HOUSEKEEPING_SUPERVISOR, HOUSEKEEPING_STAFF. ACCOUNTANT stays reserved — no
+// accountant-only screens exist yet, nothing to gate.
 enum StaffRole {
   OWNER // combines PRD's Super Admin + Property Manager for v1 (single property, no chain yet)
   FRONT_DESK
   ACCOUNTANT // reserved — no accountant-only screens built yet
-  HOUSEKEEPING_SUPERVISOR // reserved — housekeeping module not built yet
-  HOUSEKEEPING_STAFF // reserved — housekeeping module not built yet
+  HOUSEKEEPING_SUPERVISOR
+  HOUSEKEEPING_STAFF
 }
 
 model Room {
@@ -45,33 +49,75 @@ model Room {
   ratePerNight Int    // rupees — the actual source of truth bookingService looks up, no more hardcoded rate
   active     Boolean  @default(true) // false = under maintenance / not sellable, without deleting booking history
   createdAt  DateTime @default(now())
+
+  housekeepingTasks  HousekeepingTask[]
+  maintenanceTickets MaintenanceTicket[]
 }
 
 model Guest {
-  id       String    @id @default(uuid())
+  id       String      @id @default(uuid())
   name     String
   phone    String
   email    String?
+  // Digital KYC (contract addition from the UI branch, 2026-09-08) — both optional,
+  // a guest can be created before ID is captured (e.g. a phone booking) and filled in later.
+  idType   GuestIdType?
+  idNumber String?
   bookings Booking[]
 
   @@index([phone])
 }
 
+enum GuestIdType {
+  AADHAAR
+  PASSPORT
+  DRIVING_LICENSE
+  VOTER_ID
+  OTHER
+}
+
+// A set of bookings taken together (e.g. a family/wedding party across several rooms).
+// Deliberately its own table rather than a loose groupId+groupName string repeated on
+// every booking row — a shared name that could drift out of sync between rows on an edit
+// is exactly the kind of denormalization bug this project's rules exist to avoid.
+model BookingGroup {
+  id        String    @id @default(uuid())
+  name      String
+  createdAt DateTime  @default(now())
+  bookings  Booking[]
+}
+
 model Booking {
-  id              String   @id @default(uuid())
-  guest           Guest    @relation(fields: [guestId], references: [id])
+  id              String        @id @default(uuid())
+  guest           Guest         @relation(fields: [guestId], references: [id])
   guestId         String
   checkIn         DateTime
   checkOut        DateTime
   roomNumber      String
   status          BookingStatus @default(CONFIRMED)
-  roomRatePerNight Int     // rupees per night — the GST slab (12%/18%) depends on THIS, not the total
-  amount          Int      // roomRatePerNight * nights, always computed server-side — never accepted from the client
-  createdAt       DateTime @default(now())
+  // The rate actually applied to THIS booking (list rate, or a front-desk override —
+  // see bookingService's pricing-control logic). GST slab and the folio both key off
+  // this stored value, never a live re-lookup of the room's current rate — so a later
+  // rate change never silently alters an already-made booking's tax bracket.
+  roomRatePerNight Int
+  amount          Int           // (roomRatePerNight * nights) - discountAmount, always computed server-side — never accepted from the client
+  createdAt       DateTime      @default(now())
   folio           Folio?
+
+  // Front-desk depth (contract additions from the UI branch, 2026-09-08) — all optional/additive.
+  source          BookingSource?
+  notes           String?
+  group           BookingGroup?  @relation(fields: [groupId], references: [id])
+  groupId         String?
+  paymentStatus   PaymentStatus? // absent = unknown/legacy row — services default this to POSTPAID on read, never write a guess
+  discountAmount  Int?           // flat rupee discount applied at booking time, already netted into `amount`; kept separately so the folio can show it as a line item
+  priceNote       String?        // free-text reason for a manual rate override/discount — audit trail only, never used in any calculation
+  extraServices   ExtraService[]
 
   @@index([guestId])
   @@index([checkIn, checkOut])
+  @@index([roomNumber])
+  @@index([groupId])
 }
 
 enum BookingStatus {
@@ -79,6 +125,35 @@ enum BookingStatus {
   CHECKED_IN
   CHECKED_OUT
   CANCELLED
+  WAITLISTED
+  NO_SHOW
+}
+
+enum BookingSource {
+  DIRECT
+  WALK_IN
+  PHONE
+  OTHER
+}
+
+enum PaymentStatus {
+  PREPAID
+  POSTPAID
+  PARTIAL
+}
+
+// One add-on charge against a booking (room service, laundry, minibar...).
+// Deliberately NOT folded into `Booking.amount` (room charges only, the GST-relevant
+// figure) — see billingService's note on why these don't flow into the folio yet.
+model ExtraService {
+  id        String   @id @default(uuid())
+  booking   Booking  @relation(fields: [bookingId], references: [id])
+  bookingId String
+  name      String
+  amount    Int
+  createdAt DateTime @default(now())
+
+  @@index([bookingId])
 }
 
 // One GST-compliant bill per booking. Numbers are stored, not recomputed on read —
@@ -102,4 +177,207 @@ model Folio {
 enum GstType {
   CGST_SGST
   IGST
+}
+
+// OTA channel-manager configuration. This table is a REAL, working CRUD layer —
+// but "CONNECTED" here records that outreach/setup happened, not a live two-way
+// sync with the OTA's servers (that needs actual API access — see CLAUDE.md's
+// "OTA integration" section, the BD/outreach track vs. the engineering track).
+// Don't wire this to a real MakeMyTrip/Goibibo API without that access confirmed first.
+model Channel {
+  id        String        @id @default(uuid())
+  name      String        @unique // e.g. "MakeMyTrip", "Goibibo", "Booking.com"
+  status    ChannelStatus @default(NOT_CONNECTED)
+  notes     String?       // manual notes on outreach/negotiation status
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+enum ChannelStatus {
+  NOT_CONNECTED
+  IN_PROGRESS // outreach/negotiation started
+  CONNECTED
+}
+
+// Banquet/event space — a separate sellable unit from a Room, with its own booking
+// concept (HallEvent) rather than reusing Booking, since a hall is priced/booked
+// per-event, not per-night, and doesn't participate in GST accommodation billing.
+model Hall {
+  id           String      @id @default(uuid())
+  name         String
+  capacity     Int
+  ratePerEvent Int         // rupees — flat rate per event, not per-night like a Room
+  active       Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  events       HallEvent[]
+}
+
+model HallEvent {
+  id         String          @id @default(uuid())
+  hall       Hall            @relation(fields: [hallId], references: [id])
+  hallId     String
+  eventName  String
+  contactName String
+  contactPhone String
+  startsAt   DateTime
+  endsAt     DateTime
+  status     HallEventStatus @default(CONFIRMED)
+  amount     Int             // hall.ratePerEvent at time of booking — computed server-side, same rule as Booking.amount
+  createdAt  DateTime        @default(now())
+
+  @@index([hallId])
+  @@index([startsAt, endsAt])
+}
+
+enum HallEventStatus {
+  CONFIRMED
+  CANCELLED
+}
+
+// One row per active room per day — cleanliness is a sequence of tasks over time,
+// not a static property of a Room, so it's its own table with a real FK to Room
+// (the UI branch's mock version used a loose room-number string; a real relation
+// is the correct version now that Room is a real table, per "logically right, edge
+// cases" — a room getting renumbered/deleted shouldn't silently orphan its history
+// via a string match).
+model HousekeepingTask {
+  id             String              @id @default(uuid())
+  room           Room                @relation(fields: [roomId], references: [id])
+  roomId         String
+  date           DateTime            @db.Date // the day this task is for — one task per room per day
+  status         HousekeepingStatus  @default(DIRTY)
+  assignedTo     Staff?              @relation(fields: [assignedToId], references: [id])
+  assignedToId   String?
+  priority       TaskPriority        @default(NORMAL)
+  notes          String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@unique([roomId, date]) // enforces "one task per room per day" at the database level, not just in application code
+  @@index([date])
+  @@index([assignedToId])
+}
+
+enum HousekeepingStatus {
+  DIRTY
+  CLEANING
+  INSPECTED
+  READY
+}
+
+enum TaskPriority {
+  LOW
+  NORMAL
+  HIGH
+}
+
+model MaintenanceTicket {
+  id           String                  @id @default(uuid())
+  room         Room?                   @relation(fields: [roomId], references: [id]) // nullable — a ticket can be for a common area, not every issue is room-specific
+  roomId       String?
+  category     String // free text (AC, plumbing, electrical...) — hotels categorize differently, not worth an enum yet
+  priority     TaskPriority            @default(NORMAL)
+  description  String
+  status       MaintenanceStatus       @default(OPEN)
+  assignedTo   Staff?                  @relation(fields: [assignedToId], references: [id])
+  assignedToId String?
+  repairCost   Int?                    // rupees — filled when resolved, null until then; never guessed/defaulted to 0
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+
+  @@index([roomId])
+  @@index([status])
+  @@index([assignedToId])
+}
+
+enum MaintenanceStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  WAITING
+  RESOLVED
+  CLOSED
+}
+
+// Fixed-window rate limiting, DB-backed — the exact pattern proven on the last
+// project (see CLAUDE.md's "Rate limiting" note), applied here for real this time.
+model RateLimit {
+  key       String   @id
+  count     Int
+  windowEnd DateTime
+}
+
+// Single row per property (v1 is one property, not a chain) — hotel's own details
+// for GST invoices and the Settings > Property tab. Enforced as a singleton in
+// settingsService (always reads/writes the one row), not at the schema level —
+// Postgres has no clean native "at most one row" constraint worth the complexity here.
+model PropertySettings {
+  id         String   @id @default(uuid())
+  hotelName  String
+  address    String
+  gstNumber  String?
+  phone      String?
+  // GST accommodation slab — government-notified (CBIC), not a business choice a
+  // hotel makes freely. These three numbers exist so an owner can update them
+  // WHEN THE LAW CHANGES (it has before) without a developer touching code, not
+  // so any arbitrary % can be typed in. billingService reads these instead of
+  // the previously-hardcoded 12/18/7500 constants.
+  gstThresholdRupees Int @default(7500)
+  gstLowRatePercent  Int @default(12)
+  gstHighRatePercent Int @default(18)
+  updatedAt  DateTime @updatedAt
+}
+
+// Real audit trail — every meaningful staff action, not just auth failures
+// (lib/require-staff.ts already logs those separately). `details` carries
+// whatever's useful for that specific action (e.g. {from, to} for a status
+// change) — deliberately untyped JSON since the shape varies per action,
+// same tradeoff Prisma's own Json type is meant for.
+model AuditLog {
+  id         String   @id @default(uuid())
+  staff      Staff?   @relation(fields: [staffId], references: [id])
+  staffId    String?
+  action     String   // e.g. "booking.create", "booking.status_change", "booking.void"
+  entityType String   // e.g. "Booking", "Room", "Folio"
+  entityId   String
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([staffId])
+  @@index([createdAt])
+}
+
+// Automatic rate adjustments — weekly (e.g. weekend surcharge) or a specific
+// festival/date-range hike, applied on top of a room's list rate at booking time.
+// Deliberately separate from Room.ratePerNight (the base list rate never changes
+// here) — a rule stacks a % or flat ₹ adjustment on top, and createBooking picks
+// the single highest-priority matching rule rather than stacking multiple.
+model RateRule {
+  id             String       @id @default(uuid())
+  name           String       // e.g. "Weekend surcharge", "Diwali week"
+  type           RateRuleType
+  // WEEKLY: daysOfWeek is used (0=Sunday..6=Saturday), startDate/endDate ignored.
+  // DATE_RANGE: startDate/endDate used, daysOfWeek ignored.
+  daysOfWeek     Int[]        @default([])
+  startDate      DateTime?
+  endDate        DateTime?
+  adjustmentType RateAdjustmentType
+  adjustmentValue Int         // percent (0-100) or flat rupees, per adjustmentType
+  active         Boolean      @default(true)
+  // Higher priority wins when more than one rule matches the same night — e.g. a
+  // festival-week rule should win over a generic weekend rule for the same date.
+  priority       Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+enum RateRuleType {
+  WEEKLY
+  DATE_RANGE
+}
+
+enum RateAdjustmentType {
+  PERCENT
+  FLAT
 }

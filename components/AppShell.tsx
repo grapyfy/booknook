@@ -39,7 +39,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <span className="h-7 w-7 rounded-md bg-blue-600 text-white flex items-center justify-center text-sm font-bold">
             B
           </span>
-          <span className="text-lg font-semibold">BookNook</span>
+          <span className="text-lg font-semibold">GRAP</span>
         </div>
         <button
           onClick={() => setMobileNavOpen(false)}

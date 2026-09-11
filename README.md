@@ -1,4 +1,4 @@
-# BookNook
+# GRAP
 
 Front desk, billing, and guest messaging for independent Indian hotels.
 

@@ -1,15 +1,31 @@
 import { db } from "@/lib/db";
+import { getPropertySettings } from "@/services/settingsService";
 
-// GST slabs for hotel accommodation (as of this writing — tax rules change,
-// see CLAUDE.md's note on keeping this configurable if the slab structure changes).
-// Based on the room's per-night rate, NOT the total booking amount.
-const GST_LOW_RATE = 12; // ₹1,000–₹7,500 per night
-const GST_HIGH_RATE = 18; // above ₹7,500 per night
-const GST_THRESHOLD = 7500;
 const SAC_CODE_ACCOMMODATION = "996311";
 
-function gstRateForRoomRate(roomRatePerNight: number): number {
-  return roomRatePerNight > GST_THRESHOLD ? GST_HIGH_RATE : GST_LOW_RATE;
+export interface GstConfig {
+  thresholdRupees: number;
+  lowRatePercent: number;
+  highRatePercent: number;
+}
+
+// Reads the configured slab from PropertySettings instead of a hardcoded constant —
+// these three numbers are government-notified (CBIC), not a business choice, so
+// "configurable" here means an owner can update them when the LAW changes (it has
+// before), not set an arbitrary rate. See the schema comment on PropertySettings.
+// Exported so the booking form's live tax-inclusive estimate can use the same real
+// config instead of a second hardcoded copy that could drift from this one.
+export async function getGstConfig(): Promise<GstConfig> {
+  const settings = await getPropertySettings();
+  return {
+    thresholdRupees: settings.gstThresholdRupees,
+    lowRatePercent: settings.gstLowRatePercent,
+    highRatePercent: settings.gstHighRatePercent,
+  };
+}
+
+function gstRateForRoomRate(roomRatePerNight: number, config: GstConfig): number {
+  return roomRatePerNight > config.thresholdRupees ? config.highRatePercent : config.lowRatePercent;
 }
 
 async function nextInvoiceNumber(): Promise<string> {
@@ -27,7 +43,8 @@ export async function generateFolio(bookingId: string) {
   if (existing) return existing; // idempotent — never double-bill the same booking
 
   const baseAmount = booking.amount;
-  const gstRate = gstRateForRoomRate(booking.roomRatePerNight);
+  const gstConfig = await getGstConfig();
+  const gstRate = gstRateForRoomRate(booking.roomRatePerNight, gstConfig);
   const taxAmount = Math.round((baseAmount * gstRate) / 100);
   const cgst = Math.round(taxAmount / 2);
   const sgst = taxAmount - cgst; // avoids a rupee going missing to rounding

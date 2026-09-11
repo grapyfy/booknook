@@ -1,18 +1,18 @@
-# BookNook — Project Rules
+# GRAP — Project Rules
 
-Working name as of 2026-08-31 (provisional, may change again). Everywhere below that says "StayGrid" refers to the same product — the original PRD and early planning docs use that name, not renamed throughout yet.
+**Final name, confirmed 2026-09-09** (was "StayGrid" in the original PRD/early planning, then briefly "BookNook" — both retired). Everywhere in this repo/memory that still says "StayGrid" or "BookNook" refers to the same product — not every historical doc has been swept for the old names, don't assume finding one means the name changed again.
 
 Shared source of truth for anyone (or any AI tool — Claude, Cursor, Copilot, whatever) working on this repo — Abhay (backend/logic) and teammate (UI), currently 2 people. This file lives at the repo root and is meant to be read start-to-finish by a new person/AI picking up the project for the first time.
 
 ## What this is
-StayGrid India — WhatsApp-first, UPI-first hotel PMS + channel manager for independent Indian hotels (10–200 rooms). Full PRD: `StayGrid_India_PRD_v1_1.md` in this folder — treat it as the north star vision, not the v1 spec (see scope below).
+GRAP — WhatsApp-first, UPI-first hotel PMS + channel manager for independent Indian hotels (10–200 rooms). Full PRD: `StayGrid_India_PRD_v1_1.md` in this folder (filename kept as-is, historical — it's still the north star vision doc, not renamed since renaming the file would break every existing reference to it). Treat it as the vision, not the v1 spec (see scope below).
 
 ## Getting started (read this first, whoever you are)
 
-Repo: `https://github.com/abhayyy-singh/booknook` (private).
+Repo: `https://github.com/grapyfy/booknook` (public — moved from `abhayyy-singh/booknook` 2026-09-10, see STATUS.md for why; the old URL still redirects but don't rely on that).
 
 ```bash
-git clone https://github.com/abhayyy-singh/booknook.git
+git clone https://github.com/grapyfy/booknook.git
 cd booknook
 npm install
 npm run dev   # http://localhost:3000
@@ -26,39 +26,37 @@ npm run dev   # http://localhost:3000
 
 ## Current build status (snapshot — keep this section updated, don't rely only on the dated log in STATUS.md for "what exists right now")
 
-**Backend — done and verified against a real database:**
-- Login + roles (`OWNER`, `FRONT_DESK` enforced; 4 more PRD roles reserved in the schema, unused) — `app/login/`, `middleware.ts`
-- Bookings — create/list, real room-rate lookup, never trusts a client-sent amount — `app/api/bookings/`
-- Rooms — create/list, real rates (nothing hardcoded) — `app/api/rooms/`
-- GST billing (Folio) — 12%/18% slab by room rate, CGST+SGST (intra-state assumed for v1), SAC 996311, idempotent — `app/api/bookings/[id]/folio/`
-- Excel/CSV import with "Nothing Lost" report — flexible headers, mixed date formats, auto-creates unknown rooms only if a rate is given — `app/api/import/bookings/`
+`feature/dashboard-ui` is merged to `main` (2026-09-08). UI (all screens) is real against mock data; backend has been extended to cover the same ground for real. **Full detail: `LOGIC.md` (UI, every button/computed number) and `BACKEND_LOGIC.md` (backend, every service/endpoint) — this section is only a summary, don't treat it as the source of truth for exact behavior.**
 
-**UI — built on `feature/dashboard-ui` (PR #1 open against `main` as of 2026-09-09, not yet merged, pushed to origin):** all 5 v1 screens below are done against mock data (login restyle, bookings list/calendar/new-booking form, room management, GST folio, CSV import), plus a dashboard home with a Minimal/Detailed toggle, booking lifecycle actions (check-in/out/cancel/no-show/waitlist-confirm), guest profiles + digital KYC, a Gantt-style calendar (drag-and-drop reschedule, day/week/month views, overbooking + possible-no-show detection), walk-in + group bookings, and full front-desk pricing control (rate override/discount/service charges, payment status) wired straight into invoice generation. **This snapshot only summarizes — for exact behavior read `LOGIC.md` (every button/link/computed number), the dated build log in `STATUS.md`, the standing rules in `RULES.md`, and the design system in `context.md`.**
+**Backend — real, migrated, live** (Supabase project restored, all migrations applied — see `STATUS.md` for the full 2026-09-09/2026-09-10 history of getting this live, the Vercel deploy, and everything built since):
+- Login + roles — `OWNER`/`FRONT_DESK` enforced, `HOUSEKEEPING_SUPERVISOR`/`HOUSEKEEPING_STAFF` now real too (Housekeeping module built), `ACCOUNTANT` still reserved
+- Bookings — full front-desk depth: pricing control (rate override/discount/service charges), reschedule (extend/shorten/move room), status lifecycle (confirmed/checked-in/checked-out/cancelled/waitlisted/no-show, transitions enforced), group bookings (all-or-nothing transaction), overbooking + possible-no-show detection
+- GST billing (Folio) — unchanged, already correct (keys off the per-booking rate actually charged, not a live room-rate lookup — the real backend never had the bug the mock layer had to fix)
+- Rooms, Excel/CSV import — unchanged from before this pass
+- Guests & Customers — guest history by phone, aggregated customer directory with search
+- Reports — real occupancy/ADR/RevPAR, CSV export
+- Channels — real CRUD; `status` is a manual outreach flag, **not** a live OTA sync (see "OTA integration" below)
+- Halls & Events — real CRUD with time-overlap conflict checking
+- Settings — real property-details singleton
+- Housekeeping — real 4-stage task board (one task per active room per day, DB-enforced), staff assignment
+- Maintenance — real ticket workflow, technician assignment, resolve requires a real repair cost
 
-**Also built, deliberately exceeding this doc's locked v1 scope below** — an explicit, flagged decision made with the teammate mid-build, not a unilateral scope change (see `STATUS.md`'s part-4 entry): Channels/OTA (including a real, mock-persisted stop-sell/inventory control matrix — see part 12), Users & roles, Halls & events, and some Settings tabs, all as honest UI-only stubs (visibly labeled in-app), never wired to a real OTA sync or message send. Housekeeping (`/housekeeping`) and Maintenance (`/maintenance`) are new, fully real (not stubs) modules on top of new mock domains — not in the original 5-screen list above and not in the locked scope below either, but genuinely functional (real status workflows, not decorative).
+**Also built on the UI side, deliberately exceeding this doc's locked v1 scope below** — an explicit, flagged decision made between Abhay and the teammate (Gautam) mid-build, not a unilateral scope change (see `STATUS.md`'s part-4 entry): Channels/OTA, Users & roles, Halls & events, Settings tabs, and the final reference-list stubs (Marketing & CRM, Corporate & travel agents, Vendors, Reviews) — all honest UI-only stubs (visibly labeled in-app), never wired to a real OTA sync or message send. Housekeeping (`/housekeeping`) and Maintenance (`/maintenance`) are new, fully real (not stubs) modules — not in the original 5-screen list and not in the locked scope below, but genuinely functional. **Backend for all of the above (real tables/services/routes, not stubs) has been built to match — see the bullet list above and `BACKEND_LOGIC.md`.**
 
-**Billing/Payments depth (2026-09-08, part 9) — real, and this one IS in locked v1 scope:** payment recording (multi-method, derived balance), refunds with auto-issued credit notes, void-and-reissue invoicing, a cash register with a real computed daily cash-received figure, and a **GSTR-1 CSV export** on `/reports` — GSTR-1 export is explicitly named in the v1 scope below, so this isn't scope creep, it's the real thing. Not built: a live payment gateway call (still BYOG-stub only, per the payments rule below), OTA/gateway/bank reconciliation (no real data to reconcile against).
+**Billing/Payments depth (UI, 2026-09-08, part 9) — real, and this one IS in locked v1 scope, not creep:** payment recording (multi-method, derived balance), refunds with auto-issued credit notes, void-and-reissue invoicing, a cash register with a real computed daily cash-received figure, and a **GSTR-1 CSV export** on `/reports`. **Backend for this is NOT built yet** — this landed on the UI branch after the backend catch-up pass above; next backend session should extend `BACKEND_LOGIC.md`/the schema to cover Payment/CreditNote/CashRegister, matching this the same way the rest of the backend now matches the UI. Not built (either side): a live payment gateway call (still BYOG-stub only, per the payments rule below), OTA/gateway/bank reconciliation (no real data to reconcile against).
 
-**Final stub screens (2026-09-08, part 10):** Marketing & CRM, Corporate & travel agents, Vendors, Reviews & reputation — same honest-stub pattern as the earlier ones. This closes out the reference-list build; `LOGIC.md` has the full list of what's deliberately still not built and why. Sidebar nav is now grouped into 5 sections (was a flat 18+ items).
+**Not built (either side):** offline check-in/sync queue, any real WhatsApp send (deferred, per this doc's "never wire a live send" rule). Extra services/discounts don't flow into the GST folio's tax calc yet (deferred, flagged in `BACKEND_LOGIC.md`, not silently skipped).
 
-**Mobile responsiveness pass (2026-09-09, part 13):** every page/component audited and fixed for sub-768px viewports — sidebar becomes a hamburger-triggered slide-over drawer, stat/card grids collapse through 1–2 columns before their desktop count, and 3 real overflow bugs (calendar toolbar, maintenance ticket footer, cash-register payout form) were found by measuring actual `scrollWidth` at 375px and fixed. See `RULES.md`'s new standing "mobile responsiveness" and "dynamic data / single source of truth" rules — the latter is also now the explicit rationale for why shared constants/mock modules exist instead of per-component literals.
+**Mobile responsiveness pass (2026-09-09, Gautam):** every page/component audited and fixed for sub-768px viewports — sidebar becomes a hamburger-triggered slide-over drawer, stat/card grids collapse through 1–2 columns before their desktop count, and 3 real overflow bugs (calendar toolbar, maintenance ticket footer, cash-register payout form) were found by measuring actual `scrollWidth` at 375px and fixed. See `RULES.md`'s new standing "mobile responsiveness" and "dynamic data / single source of truth" rules — the latter is also now the explicit rationale for why shared constants/mock modules exist instead of per-component literals.
 
-**Hardcoded-values audit (2026-09-09, part 14):** swept the codebase for the same literal declared independently in more than one place. Fixed 5 real cases (payment-method list, GST slab math, nights-between-dates math, maintenance category labels, maintenance category/priority enums) — see `STATUS.md` for specifics. Flagged but not fixed: `Guest.idType` and `Booking.paymentStatus` are each duplicated between `types/booking.ts` and a separate `z.enum([...])` in `actions.ts` — same drift risk, but changing how a `types/` contract field is declared needs Abhay's sign-off first. New file: `constants/maintenance.ts` (client-safe category/priority data, split out after a value-import from a client component briefly broke the production build by pulling `maintenanceMock.ts`'s `fs`/`path` code into the browser bundle).
+**Hardcoded-values audit (2026-09-09, Gautam):** swept the codebase for the same literal declared independently in more than one place. Fixed 5 real cases (payment-method list, GST slab math, nights-between-dates math, maintenance category labels, maintenance category/priority enums) — see `STATUS.md` for specifics. Flagged but not fixed: `Guest.idType` and `Booking.paymentStatus` are each duplicated between `types/booking.ts` and a separate `z.enum([...])` in `actions.ts` — same drift risk, but changing how a `types/` contract field is declared needs Abhay's sign-off first. New file: `constants/maintenance.ts` (client-safe category/priority data, split out after a value-import from a client component briefly broke the production build by pulling `maintenanceMock.ts`'s `fs`/`path` code into the browser bundle).
 
-**Branch size note:** this branch is now 14 STATUS.md entries / 7 commits from one continuous session, with PR #1 open against `main` — exactly the "grown large, ship in smaller pieces" signal this doc's own engineering standards call out below. Worth reviewing and merging before it grows further, rather than treating this as the new normal size for a single branch. Whoever reviews this branch should know all of the above going in.
+**Branch size note:** `feature/dashboard-ui` grew large on both sides independently before being merged back together on 2026-09-10 (Gautam's UI branch had diverged significantly from a fast-moving `main` that gained a full live Vercel deployment, real database, and a large backend feature pass in the meantime) — worth both sides pulling `main` more frequently going forward rather than letting either side's branch run this far ahead.
 
-**Still not built:** offline check-in/sync queue, and any real WhatsApp send (the folio screen has an inert preview only, per this doc's "never wire a live send" rule below). Service charges captured on a booking don't flow into the GST folio yet (shown for reference only) — real billing-line-item integration is deferred, not skipped silently.
+**Scope note:** Channels/Users/Halls/Settings/Marketing/Corporate/Vendors/Reviews (as UI stubs), Housekeeping/Maintenance (as real modules), and Billing/Payments depth all exceed or extend this doc's "locked v1 scope" below — explicit decisions made between Abhay and Gautam, not unilateral expansion. The locked-scope section hasn't been rewritten to match yet; treat the bullet list above as more current than "v1 scope — locked" for "what are we actually building."
 
-## What the UI needs to build (teammate's call on exact order/design — this is what exists to build against)
-
-Screens with a real, working API already behind them — **status: all 5 built, see the snapshot above and `LOGIC.md` for exact behavior:**
-1. **Login** — exists (`app/login/page.tsx`) but bare-bones; restyle freely, the auth logic underneath is solid
-2. **Booking calendar/list + "new booking" form** — `types/booking.ts`'s `Booking`/`Guest` contract, `GET`/`POST /api/bookings`
-3. **Room management** (add a room, see rates) — `types/room.ts`'s `Room` contract, `GET`/`POST /api/rooms`
-4. **Folio/invoice view** (show the GST bill for a booking) — `types/booking.ts`'s `Folio` contract, `GET`/`POST /api/bookings/:id/folio`
-5. **CSV import screen** (upload a file, show the "Nothing Lost" report) — `POST /api/import/bookings`, multipart `file` field, returns `{totalRows, imported[], flagged[], roomsCreated[]}`
-
-Build against mock data first (already in `types/`), swap to the real fetch calls once ready — that's the contract workflow below. (Done for all 5 above, still against mock data — swapping to real `fetch()` calls is the next real step once backend + UI are ready to plug together.)
+## What's next
+Once the database migration is applied (see above) and verified end-to-end, the real step is swapping the UI's mock-data calls (`components/lib/mockData.ts` and friends) for real `fetch()` calls against the endpoints in `BACKEND_LOGIC.md` — the contract workflow below was designed for exactly this handoff.
 
 ## v1 scope — locked
 **Build:** front desk (calendar, walk-in, guest profile, digital KYC), GST folio + billing + GSTR-1 export, UPI payments (BYOG model — see below), WhatsApp booking confirmation + missed-call recovery, Excel/CSV importer with "Nothing Lost" report, offline check-in with a sync queue.

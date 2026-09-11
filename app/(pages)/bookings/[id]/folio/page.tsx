@@ -2,10 +2,13 @@ import { notFound } from "next/navigation";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faIndianRupeeSign } from "@fortawesome/free-solid-svg-icons";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
-import { getBookingMock, generateFolioMock, listFoliosMock } from "@/components/lib/mockData";
+import { getBooking } from "@/services/bookingService";
+import { generateFolio } from "@/services/billingService";
 import { listPaymentsForBookingMock, listCreditNotesForBookingMock, computeBookingBalanceMock } from "@/components/lib/paymentsMock";
+import { listFoliosMock } from "@/components/lib/mockData";
 import { Button } from "@/components/ui/Button";
 import { PaymentPanel } from "@/components/PaymentPanel";
+import type { Booking, Folio } from "@/types/booking";
 
 const PAYMENT_STATUS_STYLES: Record<string, string> = {
   prepaid: "bg-green-100 text-green-700",
@@ -25,16 +28,18 @@ function nightsBetween(checkIn: string, checkOut: string): number {
 
 export default async function FolioPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const booking = getBookingMock(id);
+  const booking = (await getBooking(id)) as Booking | null;
   if (!booking) notFound();
 
-  // Same idempotent generate-or-fetch pattern as the real
-  // POST /api/bookings/:id/folio — safe to land on this page repeatedly.
-  const folio = generateFolioMock(id);
+  // Idempotent generate-or-fetch — safe to land on this page repeatedly.
+  // Cast to the shared Folio contract: the real billingService doesn't have
+  // voided/voidReason yet (billing-depth backend not built, see CLAUDE.md) —
+  // both stay undefined until that work lands, which is what the contract expects.
+  const folio = (await generateFolio(id)) as unknown as Folio;
 
   const nights = nightsBetween(booking.checkIn, booking.checkOut);
   const perNightRate = Math.round(booking.amount / nights);
-  const serviceTotal = (booking.extraServices ?? []).reduce((sum, s) => sum + s.amount, 0);
+  const serviceTotal = (booking.extraServices ?? []).reduce((sum: number, s: { amount: number }) => sum + s.amount, 0);
   const grandTotal = folio.totalAmount + serviceTotal;
   const paymentStatus = booking.paymentStatus ?? "postpaid";
 
@@ -43,7 +48,7 @@ export default async function FolioPage({ params }: { params: Promise<{ id: stri
   const balance = computeBookingBalanceMock(booking.id, grandTotal);
   const voidedFolios = listFoliosMock().filter((f) => f.bookingId === booking.id && f.voided);
 
-  const whatsappPreview = `Hi ${booking.guest.name}, your booking at BookNook is confirmed!\nRoom ${booking.roomNumber} · ${booking.checkIn} to ${booking.checkOut}\nTotal: ₹${folio.totalAmount.toLocaleString("en-IN")} (incl. GST)\nInvoice: ${folio.invoiceNumber}`;
+  const whatsappPreview = `Hi ${booking.guest.name}, your booking at GRAP is confirmed!\nRoom ${booking.roomNumber} · ${booking.checkIn} to ${booking.checkOut}\nTotal: ₹${folio.totalAmount.toLocaleString("en-IN")} (incl. GST)\nInvoice: ${folio.invoiceNumber}`;
 
   return (
     <div className="flex flex-col gap-6 max-w-2xl">

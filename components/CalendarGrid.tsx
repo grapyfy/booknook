@@ -66,6 +66,23 @@ export function CalendarGrid({ rooms, bookings, days }: { rooms: Room[]; booking
     return filtered.find((b) => b.status !== "cancelled" && b.roomNumber === roomNumber && date >= b.checkIn && date < b.checkOut);
   }
 
+  // Live drag-hover preview, computed purely from the `bookings` prop already
+  // loaded for this view — no extra fetch needed. Same interval-overlap rule and
+  // same two "holds inventory" statuses as the server's assertRoomAvailable, so
+  // what's highlighted here matches what the drop will actually be rejected for.
+  // A waitlisted booking being dragged is never flagged (matches the backend:
+  // rescheduleBooking only checks availability for confirmed/checked-in).
+  function wouldConflict(roomNumber: string, newCheckIn: string, newCheckOut: string, excludeId: string): boolean {
+    return bookings.some(
+      (b) =>
+        b.id !== excludeId &&
+        b.roomNumber === roomNumber &&
+        (b.status === "confirmed" || b.status === "checked-in") &&
+        newCheckIn < b.checkOut &&
+        b.checkIn < newCheckOut
+    );
+  }
+
   // Collapse consecutive days occupied by the same booking into one spanning
   // segment (a table cell with colSpan) instead of one badge per day — a
   // 4-night stay renders as one bar 4 columns wide, not 4 separate ones.
@@ -171,11 +188,33 @@ export function CalendarGrid({ rooms, bookings, days }: { rooms: Room[]; booking
                   const cellKey = `${room.roomNumber}|${seg.date}`;
                   const isDragOver = dragOverKey === cellKey;
                   const draggable = seg.booking && DRAGGABLE_STATUSES.includes(seg.booking.status);
+
+                  let dragOverInvalid = false;
+                  if (isDragOver && dragBookingId) {
+                    const dragged = bookings.find((b) => b.id === dragBookingId);
+                    if (dragged) {
+                      const nights = daysBetween(dragged.checkIn, dragged.checkOut);
+                      const newCheckOut = addDays(seg.date, nights);
+                      dragOverInvalid =
+                        !room.active ||
+                        // Waitlisted never conflicts — matches the backend, which only
+                        // enforces availability for confirmed/checked-in bookings.
+                        ((dragged.status === "confirmed" || dragged.status === "checked-in") &&
+                          wouldConflict(room.roomNumber, seg.date, newCheckOut, dragged.id));
+                    }
+                  }
+
                   return (
                     <td
                       key={seg.date}
                       colSpan={seg.span}
-                      className={`p-1 border-b border-neutral-100 ${isDragOver ? "bg-blue-50 ring-1 ring-inset ring-blue-300" : ""}`}
+                      className={`p-1 border-b border-neutral-100 ${
+                        isDragOver
+                          ? dragOverInvalid
+                            ? "bg-red-50 ring-1 ring-inset ring-red-300"
+                            : "bg-blue-50 ring-1 ring-inset ring-blue-300"
+                          : ""
+                      }`}
                       onDragOver={(e) => {
                         if (!dragBookingId) return;
                         e.preventDefault();

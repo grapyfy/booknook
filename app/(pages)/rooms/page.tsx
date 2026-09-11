@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPlus } from "@fortawesome/free-solid-svg-icons";
-import { listRoomsMock } from "@/components/lib/mockData";
+import { listRooms } from "@/services/roomService";
 import { Button } from "@/components/ui/Button";
 
-export default function RoomsPage() {
-  const rooms = listRoomsMock();
+export default async function RoomsPage() {
+  const rooms = await listRooms();
 
   return (
     <div className="flex flex-col gap-4">

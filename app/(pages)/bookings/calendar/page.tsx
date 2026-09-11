@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPlus, faChevronLeft, faChevronRight } from "@fortawesome/free-solid-svg-icons";
-import { listBookingsMock, listRoomsMock } from "@/components/lib/mockData";
+import { listBookings } from "@/services/bookingService";
+import { listRooms } from "@/services/roomService";
 import { Button } from "@/components/ui/Button";
 import { BookingsViewToggle } from "@/components/BookingsViewToggle";
 import { CalendarGrid } from "@/components/CalendarGrid";
@@ -35,8 +36,8 @@ export default async function BookingsCalendarPage({
   const prevStart = toISODate(new Date(new Date(startDate).setDate(startDate.getDate() - shiftDays)));
   const nextStart = toISODate(new Date(new Date(startDate).setDate(startDate.getDate() + shiftDays)));
 
-  const bookings = listBookingsMock();
-  const rooms = listRoomsMock();
+  const bookings = await listBookings();
+  const rooms = await listRooms();
 
   return (
     <div className="flex flex-col gap-4">

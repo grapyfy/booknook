@@ -40,7 +40,7 @@ import { StatCard } from "@/components/StatCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { RevenueLineChart } from "@/components/charts/RevenueLineChart";
 import { RoomStatusBar } from "@/components/charts/RoomStatusBar";
-import { getDashboardStatsMock, listBookingsMock } from "@/components/lib/mockData";
+import { getDashboardStats } from "@/services/dashboardService";
 
 const QUICK_ACTIONS = [
   { label: "New booking", href: "/bookings/new", icon: faPlus },
@@ -57,8 +57,7 @@ export default async function DashboardPage({
   const { view } = await searchParams;
   const detailed = view === "detailed";
 
-  const stats = getDashboardStatsMock();
-  const recentBookings = listBookingsMock().slice(0, 4);
+  const stats = await getDashboardStats();
 
   return (
     <AppShell>
@@ -127,7 +126,7 @@ export default async function DashboardPage({
                     <span>
                       {b.guest.name} <span className="text-neutral-400 font-mono">· Room {b.roomNumber}</span>
                     </span>
-                    <StatusBadge status={b.status} />
+                    <StatusBadge status={b.status.toLowerCase() as any} />
                   </div>
                 ))}
               </div>
@@ -141,7 +140,7 @@ export default async function DashboardPage({
                     <span>
                       {b.guest.name} <span className="text-neutral-400 font-mono">· Room {b.roomNumber}</span>
                     </span>
-                    <StatusBadge status={b.status} />
+                    <StatusBadge status={b.status.toLowerCase() as any} />
                   </div>
                 ))}
               </div>
@@ -158,8 +157,8 @@ export default async function DashboardPage({
               </Link>
             </div>
             <div className="rounded-lg border border-neutral-200 bg-white divide-y divide-neutral-100">
-              {recentBookings.length === 0 && <p className="p-4 text-neutral-500 text-sm">No bookings yet.</p>}
-              {recentBookings.map((booking) => (
+              {stats.recentBookings.length === 0 && <p className="p-4 text-neutral-500 text-sm">No bookings yet.</p>}
+              {stats.recentBookings.map((booking) => (
                 <Link
                   key={booking.id}
                   href={`/bookings/${booking.id}/folio`}
@@ -172,11 +171,11 @@ export default async function DashboardPage({
                     <div>
                       <div className="font-medium">{booking.guest.name}</div>
                       <div className="text-sm text-neutral-500 font-mono">
-                        Room {booking.roomNumber} · {booking.checkIn}
+                        Room {booking.roomNumber} · {new Date(booking.checkIn).toISOString().split("T")[0]}
                       </div>
                     </div>
                   </div>
-                  <StatusBadge status={booking.status} />
+                  <StatusBadge status={booking.status.toLowerCase() as any} />
                 </Link>
               ))}
             </div>

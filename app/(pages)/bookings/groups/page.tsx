@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPlus, faUsers } from "@fortawesome/free-solid-svg-icons";
-import { listGroupBookingsMock } from "@/components/lib/mockData";
+import { listGroupBookings } from "@/services/bookingService";
 import { Button } from "@/components/ui/Button";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { BookingsViewToggle } from "@/components/BookingsViewToggle";
 
-export default function GroupBookingsPage() {
-  const groups = listGroupBookingsMock();
+export default async function GroupBookingsPage() {
+  const groups = await listGroupBookings();
 
   return (
     <div className="flex flex-col gap-4">

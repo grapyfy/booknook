@@ -1,4 +1,4 @@
-# BookNook — UI Design System
+# GRAP — UI Design System
 
 Distilled 2026-09-08 from a hotel-PMS/SaaS-dashboard reference set the teammate provided (four dashboard screenshots — an HR/absence calendar, a project-management dashboard, a credit-dispute dashboard, and a hotel-management dashboard). The closest match to this product is the hotel one: sidebar nav, stat tiles with icon badges, a revenue chart, a room-status summary, a recent-activity list, and quick actions. This file documents what was actually built so it stays consistent — update it if the direction changes, don't let it drift from the real components.
 

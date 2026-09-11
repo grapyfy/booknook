@@ -1,10 +1,20 @@
 import { faFileCsv } from "@fortawesome/free-solid-svg-icons";
-import { listCustomersMock } from "@/components/lib/mockData";
+import { listCustomers } from "@/services/customerService";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { CustomersTable } from "@/components/CustomersTable";
 
-export default function CustomersPage() {
-  const customers = listCustomersMock();
+export default async function CustomersPage() {
+  const apiCustomers = await listCustomers();
+  // Adapt the real backend's CustomerSummary (totalBookings, lastBookingAt, no
+  // per-customer idType) to the shape CustomersTable was built against
+  // (stays, optional idType) — no KYC-by-customer aggregation exists server-side yet.
+  const customers = apiCustomers.map((c) => ({
+    name: c.name,
+    phone: c.phone,
+    email: c.email,
+    stays: c.totalBookings,
+    totalSpend: c.totalSpend,
+  }));
 
   return (
     <div className="flex flex-col gap-4">
