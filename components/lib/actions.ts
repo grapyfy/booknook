@@ -40,6 +40,13 @@ import {
 } from "@/components/lib/maintenanceMock";
 import { MAINTENANCE_CATEGORIES, MAINTENANCE_PRIORITIES } from "@/constants/maintenance";
 import type { MaintenanceStatus, MaintenanceTicket } from "@/components/lib/maintenanceMock";
+import {
+  createRateRuleMock,
+  setRateRuleActiveMock,
+  deleteRateRuleMock,
+} from "@/components/lib/rateRulesMock";
+import { RATE_RULE_TYPES, ADJUSTMENT_TYPES } from "@/constants/rateRules";
+import type { RateRuleType, AdjustmentType } from "@/constants/rateRules";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -529,6 +536,75 @@ export async function closeRegisterAction(actualAmount: number): Promise<ActionR
     return { ok: false, error: err instanceof Error ? err.message : "Could not close register" };
   }
   revalidatePath("/cash-register");
+  return { ok: true };
+}
+
+// ---- Rate rules (dynamic pricing — see rateRulesMock.ts) ----
+
+const createRateRuleSchema = z
+  .object({
+    name: z.string().min(1).max(80),
+    type: z.enum(RATE_RULE_TYPES),
+    daysOfWeek: z.array(z.number().int().min(0).max(6)).max(7).optional(),
+    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD").optional(),
+    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD").optional(),
+    adjustmentType: z.enum(ADJUSTMENT_TYPES),
+    adjustmentValue: z.number().int().min(0).max(100000),
+    priority: z.number().int().min(0).max(1000).optional(),
+  })
+  .refine((v) => v.type !== "WEEKLY" || (v.daysOfWeek && v.daysOfWeek.length > 0), {
+    message: "Pick at least one day of the week",
+    path: ["daysOfWeek"],
+  })
+  .refine((v) => v.type !== "DATE_RANGE" || (v.startDate && v.endDate && v.startDate <= v.endDate), {
+    message: "Start date must be on or before end date",
+    path: ["endDate"],
+  })
+  .refine((v) => v.adjustmentType !== "PERCENT" || v.adjustmentValue <= 100, {
+    message: "A percent adjustment can't exceed 100",
+    path: ["adjustmentValue"],
+  });
+
+export async function createRateRuleAction(input: {
+  name: string;
+  type: RateRuleType;
+  daysOfWeek?: number[];
+  startDate?: string;
+  endDate?: string;
+  adjustmentType: AdjustmentType;
+  adjustmentValue: number;
+  priority?: number;
+}): Promise<ActionResult> {
+  const parsed = createRateRuleSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid rate rule details" };
+  }
+  try {
+    createRateRuleMock(parsed.data);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not create rate rule" };
+  }
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
+export async function setRateRuleActiveAction(id: string, active: boolean): Promise<ActionResult> {
+  try {
+    setRateRuleActiveMock(id, active);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not update rate rule" };
+  }
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
+export async function deleteRateRuleAction(id: string): Promise<ActionResult> {
+  try {
+    deleteRateRuleMock(id);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not delete rate rule" };
+  }
+  revalidatePath("/settings");
   return { ok: true };
 }
 

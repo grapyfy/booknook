@@ -10,13 +10,7 @@ import { Select } from "@/components/ui/Select";
 import { recordPaymentAction, refundBookingAction, voidFolioAction } from "@/components/lib/actions";
 import type { PaymentRecord, PaymentMethod, CreditNote } from "@/components/lib/paymentsMock";
 import type { BookingBalance } from "@/components/lib/paymentsMock";
-
-const METHOD_LABELS: Record<PaymentMethod, string> = {
-  cash: "Cash",
-  upi: "UPI",
-  card: "Card",
-  bank_transfer: "Bank transfer",
-};
+import { METHOD_LABELS } from "@/constants/payments";
 
 export function PaymentPanel({
   bookingId,

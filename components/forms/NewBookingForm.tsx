@@ -10,6 +10,7 @@ import { FormField, Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import type { Room } from "@/types/room";
 import type { Guest, Booking } from "@/types/booking";
+import { gstRateForRoomRate, type GstConfig } from "@/lib/gst";
 
 const ID_TYPE_LABELS: Record<NonNullable<Guest["idType"]>, string> = {
   aadhaar: "Aadhaar",
@@ -28,12 +29,6 @@ const PAYMENT_STATUS_OPTIONS: { value: NonNullable<Booking["paymentStatus"]>; la
 interface ServiceRow {
   name: string;
   amount: string;
-}
-
-interface GstConfig {
-  thresholdRupees: number;
-  lowRatePercent: number;
-  highRatePercent: number;
 }
 
 export function NewBookingForm({ rooms, gstConfig }: { rooms: Room[]; gstConfig: GstConfig }) {
@@ -113,7 +108,7 @@ export function NewBookingForm({ rooms, gstConfig }: { rooms: Room[]; gstConfig:
   // Never trust this number; it's just so front desk sees a real tax-inclusive
   // total before saving, matching what the folio will actually show.
   const roomTotal = subtotal - discountValue;
-  const gstRate = effectiveRate > gstConfig.thresholdRupees ? gstConfig.highRatePercent : gstConfig.lowRatePercent;
+  const gstRate = gstRateForRoomRate(effectiveRate, gstConfig);
   const gstAmount = Math.round((roomTotal * gstRate) / 100);
   const roomTotalWithTax = roomTotal + gstAmount;
   // Extra services aren't run through GST in the real invoice yet (billing-depth

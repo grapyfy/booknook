@@ -10,12 +10,7 @@ import { FormField, Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import type { Room } from "@/types/room";
 import type { Booking } from "@/types/booking";
-
-interface GstConfig {
-  thresholdRupees: number;
-  lowRatePercent: number;
-  highRatePercent: number;
-}
+import { gstRateForRoomRate, type GstConfig } from "@/lib/gst";
 
 const PAYMENT_STATUS_OPTIONS: { value: NonNullable<Booking["paymentStatus"]>; label: string }[] = [
   { value: "postpaid", label: "Postpaid — pay at checkout" },
@@ -84,7 +79,7 @@ export function WalkInBookingForm({ rooms, gstConfig }: { rooms: Room[]; gstConf
   const subtotal = ratePerNight * nights;
   // Same real, configured GST slab as NewBookingForm (never a hardcoded duplicate) —
   // preview only, generateFolio recomputes this for real on save.
-  const gstRate = ratePerNight > gstConfig.thresholdRupees ? gstConfig.highRatePercent : gstConfig.lowRatePercent;
+  const gstRate = gstRateForRoomRate(ratePerNight, gstConfig);
   const gstAmount = Math.round((subtotal * gstRate) / 100);
   const estimatedAmount = subtotal + gstAmount;
 

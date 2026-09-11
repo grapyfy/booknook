@@ -18,6 +18,7 @@ import type { Booking, Folio, Guest, ExtraService } from "@/types/booking";
 import { MOCK_BOOKINGS } from "@/types/booking";
 import type { Room } from "@/types/room";
 import { MOCK_ROOMS } from "@/types/room";
+import { nightsBetween } from "@/lib/dates";
 
 interface Store {
   bookings: Booking[];
@@ -46,13 +47,10 @@ function newId(store: Store, prefix: string): string {
   return `${prefix}${store.nextId}`;
 }
 
-// Exported — this exact nights calculation was independently re-implemented
-// on /reports before being consolidated here; see RULES.md's "single source
-// of truth" rule.
-export function nightsBetween(checkIn: string, checkOut: string): number {
-  const ms = new Date(checkOut).getTime() - new Date(checkIn).getTime();
-  return Math.max(1, Math.round(ms / (1000 * 60 * 60 * 24)));
-}
+// Re-exported from lib/dates.ts (the client-safe home for this) so existing
+// importers of it from here don't need to change; see RULES.md's "single
+// source of truth" rule.
+export { nightsBetween };
 
 // ---- Rooms ----
 

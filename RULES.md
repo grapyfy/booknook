@@ -36,7 +36,10 @@ Abhay), not instead of it — where a rule overlaps, both should stay consistent
 - Booking/pricing UI should give full control (rate override, discount, itemized
   extra charges) rather than a fixed, take-it-or-leave-it number — and that control
   should flow straight into whatever document depends on it (e.g. invoice
-  generation follows naturally from a booking's final price).
+  generation follows naturally from a booking's final price). **Current status:**
+  extra services/discounts don't flow into the GST folio's tax calc yet — this is
+  the target, not a claim that it's done; see CLAUDE.md's status section and
+  `BACKEND_LOGIC.md` for the flagged gap.
 
 ## Dynamic data — no hardcoding, single source of truth
 **The most important rule.** Nothing that a hotel/user could reasonably change should

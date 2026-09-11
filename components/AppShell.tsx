@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -14,6 +14,13 @@ import { NotificationBell } from "@/components/NotificationBell";
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  // Any navigation that changes the route should close the drawer, not just the
+  // explicit Link/X/backdrop handlers below — otherwise e.g. the browser Back
+  // button leaves the full-screen overlay stuck over whatever page it lands on.
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
 
   // /dashboard-preview exists so the UI is viewable without real Supabase
   // credentials (/dashboard itself is gated by middleware.ts and crashes

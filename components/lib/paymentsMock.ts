@@ -6,14 +6,13 @@
 // CLAUDE.md's BYOG rule (no pooled payments, no gateway wiring here).
 import fs from "fs";
 import path from "path";
+// Payment-method list + labels live in constants/payments.ts (no fs/path
+// import) so client components can import the value without pulling this
+// file's Node-only mock-store code into their bundle.
+import type { PaymentMethod } from "@/constants/payments";
+export type { PaymentMethod };
+export { PAYMENT_METHODS } from "@/constants/payments";
 
-// Single source of truth for the payment-method list — everywhere else that
-// needs it (Zod validation in actions.ts, the method <select> in
-// PaymentPanel.tsx) imports and derives from this array instead of
-// re-listing the same 4 strings, so adding/removing a method can't drift out
-// of sync between validation and UI.
-export const PAYMENT_METHODS = ["cash", "upi", "card", "bank_transfer"] as const;
-export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 export type PaymentType = "advance" | "partial" | "full" | "refund";
 
 export interface PaymentRecord {
