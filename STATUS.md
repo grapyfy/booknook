@@ -242,6 +242,13 @@ Supabase project created (free tier, Mumbai region). Database migrations applied
 
 Dev server restarted and running against live database. Next: demo user must be created in Supabase Authentication console (`Authentication` → `Add user` → `demo@hotel.com` + password `demo123456`), then login page can be tested end-to-end.
 
+## 2026-09-12 — Abhay
+Dashboard wired to real database — `getDashboardStats` service now computes all metrics (revenue, occupancy, ADR, RevPAR, arrivals/departures, recent bookings) from live `booking` and `room` tables. Page renders all stat tiles, charts, and lists against real data, not mock. Verified: `npm run build` passes, no TypeScript errors. 
+
+Also created `lib/api-client.ts` — a typed helper for secure bookings API calls with error handling. Ready for the next phase: wiring bookings list, new-booking form, folio, and row actions to real backend endpoints. All functions properly handle auth (server-side via `requireStaff`), validation (zod schemas), and rate limiting (30/min on POST /api/bookings).
+
+**Next steps (2026-09-12+):** wire bookings screens one by one (list, create, update status, folio). Test end-to-end with demo user once created. Then rooms, then billing/payments depth (requires new Payment/CreditNote/CashRegister models).
+
 ## 2026-09-09 — Abhay (Afternoon) — Pages wired to real API
 Created typed API client (`lib/api-client.ts`) with secure error handling — 9 exported functions for bookings/rooms/guests/folio/alerts/customers. Never sends amounts client-side, handles errors gracefully, `ApiError` interface for callers.
 
