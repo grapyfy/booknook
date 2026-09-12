@@ -17,6 +17,7 @@ import { createRoom } from "@/services/roomService";
 import { createBooking, rescheduleBooking, updateBookingStatus, createGroupBooking, undoBookingStatus } from "@/services/bookingService";
 import { requireStaffForAction } from "@/lib/require-staff";
 import { logAction } from "@/services/auditLogService";
+import { getPropertySettings, updatePropertySettings } from "@/services/settingsService";
 import { recordPaymentMock, issueCreditNoteMock, PAYMENT_METHODS } from "@/components/lib/paymentsMock";
 import type { PaymentMethod, PaymentType } from "@/components/lib/paymentsMock";
 import {
@@ -60,6 +61,8 @@ const createBookingSchema = z.object({
   }),
   checkIn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD"),
   checkOut: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD"),
+  checkInTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Expected 24h HH:mm").optional(),
+  checkOutTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Expected 24h HH:mm").optional(),
   roomNumber: z.string().min(1).max(20),
   notes: z.string().max(500).optional().or(z.literal("")),
   // Pricing control — see createBookingMock's comment: this proposes a rate/
@@ -78,6 +81,8 @@ export async function createBookingAction(input: {
   guest: { name: string; phone: string; email?: string; idType?: string; idNumber?: string };
   checkIn: string;
   checkOut: string;
+  checkInTime?: string;
+  checkOutTime?: string;
   roomNumber: string;
   notes?: string;
   rateOverride?: number;
@@ -123,6 +128,8 @@ export async function createWalkInBookingAction(input: {
   guest: { name: string; phone: string; email?: string; idType?: string; idNumber?: string };
   checkIn: string;
   checkOut: string;
+  checkInTime?: string;
+  checkOutTime?: string;
   roomNumber: string;
   notes?: string;
   paymentStatus?: "prepaid" | "postpaid" | "partial";
@@ -637,5 +644,51 @@ export async function setChannelStopSellAction(channel: string, roomTypes: strin
     return { ok: false, error: err instanceof Error ? err.message : "Could not update channel" };
   }
   revalidatePath("/channels");
+  return { ok: true };
+}
+
+const timeRegex = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+// OWNER-only, same tier as the GST config it lives next to — real, wired to
+// PropertySettings (unlike most of the Property tab, which is still a mock
+// preview). Fetches current settings first since updatePropertySettings's
+// underlying route requires the full object (hotelName/address are required
+// fields there), not just the two time fields this form actually changes.
+export async function updateDefaultTimesAction(input: { defaultCheckInTime: string; defaultCheckOutTime: string }): Promise<ActionResult> {
+  let staff;
+  try {
+    staff = await requireStaffForAction();
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Not authenticated" };
+  }
+  if (staff.role !== "OWNER") {
+    return { ok: false, error: "Owner access required" };
+  }
+  if (!timeRegex.test(input.defaultCheckInTime) || !timeRegex.test(input.defaultCheckOutTime)) {
+    return { ok: false, error: "Expected 24h HH:mm format" };
+  }
+  try {
+    const current = await getPropertySettings();
+    await updatePropertySettings({
+      hotelName: current.hotelName,
+      address: current.address,
+      gstNumber: current.gstNumber ?? undefined,
+      phone: current.phone ?? undefined,
+      defaultCheckInTime: input.defaultCheckInTime,
+      defaultCheckOutTime: input.defaultCheckOutTime,
+    });
+    await logAction({
+      staffId: staff.id,
+      action: "settings.default_times_change",
+      entityType: "PropertySettings",
+      entityId: current.id,
+      details: input,
+    });
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not update default times" };
+  }
+  revalidatePath("/settings");
+  revalidatePath("/bookings/new");
+  revalidatePath("/bookings/walk-in");
   return { ok: true };
 }

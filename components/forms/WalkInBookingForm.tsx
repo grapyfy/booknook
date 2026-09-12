@@ -28,12 +28,30 @@ function tomorrowISO(): string {
   return d.toISOString().slice(0, 10);
 }
 
-export function WalkInBookingForm({ rooms, gstConfig }: { rooms: Room[]; gstConfig: GstConfig }) {
+function nowHHMM(): string {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+export function WalkInBookingForm({
+  rooms,
+  gstConfig,
+  defaultCheckOutTime,
+}: {
+  rooms: Room[];
+  gstConfig: GstConfig;
+  defaultCheckOutTime: string;
+}) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [checkIn, setCheckIn] = useState(todayISO());
   const [checkOut, setCheckOut] = useState(tomorrowISO());
+  // Check-in defaults to right now — the guest is physically at the desk,
+  // unlike an advance booking's planned future arrival. Check-out still uses
+  // the hotel's configured default (staff can adjust either).
+  const [checkInTime, setCheckInTime] = useState(nowHHMM());
+  const [checkOutTime, setCheckOutTime] = useState(defaultCheckOutTime);
   const [roomNumber, setRoomNumber] = useState(rooms.find((r) => r.active)?.roomNumber ?? "");
   const [notes, setNotes] = useState("");
   const [paymentStatus, setPaymentStatus] = useState<NonNullable<Booking["paymentStatus"]>>("postpaid");
@@ -91,6 +109,8 @@ export function WalkInBookingForm({ rooms, gstConfig }: { rooms: Room[]; gstConf
       guest: { name, phone },
       checkIn,
       checkOut,
+      checkInTime,
+      checkOutTime,
       roomNumber,
       notes: notes || undefined,
       paymentStatus,
@@ -123,10 +143,16 @@ export function WalkInBookingForm({ rooms, gstConfig }: { rooms: Room[]; gstConf
       </FormField>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <FormField label="Check-in" htmlFor="checkIn">
-          <Input id="checkIn" type="date" required value={checkIn} onChange={(e) => setCheckIn(e.target.value)} />
+          <div className="flex gap-2">
+            <Input id="checkIn" type="date" required value={checkIn} onChange={(e) => setCheckIn(e.target.value)} className="flex-1" />
+            <Input type="time" required value={checkInTime} onChange={(e) => setCheckInTime(e.target.value)} className="w-28" />
+          </div>
         </FormField>
         <FormField label="Check-out" htmlFor="checkOut">
-          <Input id="checkOut" type="date" required value={checkOut} onChange={(e) => setCheckOut(e.target.value)} />
+          <div className="flex gap-2">
+            <Input id="checkOut" type="date" required value={checkOut} onChange={(e) => setCheckOut(e.target.value)} className="flex-1" />
+            <Input type="time" required value={checkOutTime} onChange={(e) => setCheckOutTime(e.target.value)} className="w-28" />
+          </div>
         </FormField>
       </div>
       <FormField label="Room" htmlFor="room">

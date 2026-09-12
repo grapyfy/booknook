@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { listRoomsMock } from "@/components/lib/mockData";
 import { listRateRulesMock } from "@/components/lib/rateRulesMock";
+import { getPropertySettings } from "@/services/settingsService";
 import { Button } from "@/components/ui/Button";
 import { FormField, Input } from "@/components/ui/Input";
 import { IllustrativeBanner } from "@/components/IllustrativeBanner";
 import { RateRuleForm } from "@/components/forms/RateRuleForm";
 import { RateRuleRow } from "@/components/RateRuleRow";
+import { DefaultTimesForm } from "@/components/forms/DefaultTimesForm";
 
 const TABS = [
   { key: "property", label: "Property" },
@@ -24,6 +26,7 @@ export default async function SettingsPage({
   const tab = TABS.some((t) => t.key === tabParam) ? tabParam! : "property";
   const rooms = listRoomsMock();
   const rateRules = listRateRulesMock();
+  const settings = await getPropertySettings();
 
   const categories = new Map<string, { count: number; rates: number[] }>();
   for (const r of rooms) {
@@ -55,20 +58,25 @@ export default async function SettingsPage({
       </div>
 
       {tab === "property" && (
-        <div className="rounded-lg border border-neutral-200 bg-white p-6 flex flex-col gap-4 max-w-lg">
-          <IllustrativeBanner>Saves are disabled in this preview — this shows the layout only.</IllustrativeBanner>
-          <FormField label="Property name" htmlFor="propName">
-            <Input id="propName" defaultValue="" placeholder="Your hotel's name" disabled />
-          </FormField>
-          <FormField label="City / State" htmlFor="propCity">
-            <Input id="propCity" defaultValue="" placeholder="City, State" disabled />
-          </FormField>
-          <FormField label="GSTIN" htmlFor="propGstin">
-            <Input id="propGstin" defaultValue="" placeholder="15-character GSTIN" disabled />
-          </FormField>
-          <Button disabled className="self-start">
-            Save property
-          </Button>
+        <div className="flex flex-col gap-4">
+          <div className="rounded-lg border border-neutral-200 bg-white p-6 flex flex-col gap-4 max-w-lg">
+            <IllustrativeBanner>Saves are disabled in this preview — this shows the layout only.</IllustrativeBanner>
+            <FormField label="Property name" htmlFor="propName">
+              <Input id="propName" defaultValue="" placeholder="Your hotel's name" disabled />
+            </FormField>
+            <FormField label="City / State" htmlFor="propCity">
+              <Input id="propCity" defaultValue="" placeholder="City, State" disabled />
+            </FormField>
+            <FormField label="GSTIN" htmlFor="propGstin">
+              <Input id="propGstin" defaultValue="" placeholder="15-character GSTIN" disabled />
+            </FormField>
+            <Button disabled className="self-start">
+              Save property
+            </Button>
+          </div>
+
+          {/* Real, wired to PropertySettings — unlike the block above. */}
+          <DefaultTimesForm defaultCheckInTime={settings.defaultCheckInTime} defaultCheckOutTime={settings.defaultCheckOutTime} />
         </div>
       )}
 

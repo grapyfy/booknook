@@ -4,7 +4,7 @@ import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faXmark, faPhone, faFileInvoice, faNoteSticky } from "@fortawesome/free-solid-svg-icons";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { nightsBetween } from "@/lib/dates";
+import { nightsBetween, formatTime12h } from "@/lib/dates";
 import type { Booking } from "@/types/booking";
 
 const PAYMENT_STATUS_STYLES: Record<NonNullable<Booking["paymentStatus"]>, string> = {
@@ -66,6 +66,14 @@ export function BookingDetailPanel({ booking, onClose }: { booking: Booking; onC
               {booking.checkIn} → {booking.checkOut}
             </span>
           </div>
+          {(booking.checkInTime || booking.checkOutTime) && (
+            <div className="flex justify-between">
+              <span className="text-neutral-500">Time</span>
+              <span className="font-mono">
+                {booking.checkInTime ? formatTime12h(booking.checkInTime) : "—"} → {booking.checkOutTime ? formatTime12h(booking.checkOutTime) : "—"}
+              </span>
+            </div>
+          )}
           <div className="flex justify-between">
             <span className="text-neutral-500">Nights</span>
             <span className="font-mono">{nights}</span>
