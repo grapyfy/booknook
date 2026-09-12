@@ -448,3 +448,19 @@ Founder confirmed the design: hotel-wide default time (owner-customizable in Set
 **UI** (`c01349a`): time pickers next to the date fields in New Booking + Walk-in forms (Walk-in's check-in defaults to right now, not the property default, since that guest is already at the desk). `BookingDetailPanel` (opens from clicking a calendar bar) now shows the time. New `DefaultTimesForm` in Settings → Property tab — real and wired (owner-only), added as its own block without touching the rest of that tab, which stays Gautam's mock preview.
 
 Verified: clean build both commits, live deploy confirmed (login 200, settings correctly redirects unauthenticated).
+
+## 2026-09-12 — Abhay — Housekeeping + Maintenance fully wired (last 2 real-mock screens closed)
+
+Founder asked for a real pass across Dashboard/Calendar/Bookings/Rooms/Housekeeping/Maintenance. First four were already real; these two were still 100% mock (read + write) — the exact gap flagged repeatedly since the 2026-09-10 "read/write split" entry.
+
+**Real blocker in both, same shape:** the UI's staff-assign dropdowns send a free-text NAME, but `housekeepingService.assignTask`/`maintenanceService.assignTechnician` need a real `Staff` table ID. Fixed at the actual source — `HousekeepingBoard.tsx`/`MaintenanceTicketCard.tsx` now take a `staff: {id, name}[]` prop and submit IDs, not names (not an adapter hack — a name-based lookup would be fragile and isn't what the real services were built to accept).
+
+**Housekeeping-specific:** `advanceTaskStatus` only supported forward progression (Dirty→Cleaning→Inspected→Ready), but the UI has two real backward actions (fail inspection, re-dirty a Ready room). Extended it to take an explicit target status validated against an `ALLOWED_TRANSITIONS` map matching exactly what the UI offers — `PATCH /api/housekeeping/:id`'s "advance" action now takes `{next}`.
+
+**Maintenance-specific:** `TaskPriority` enum only had LOW/NORMAL/HIGH, but the UI's mock (and `MaintenanceTicketCard.tsx`'s styling) always had a 4th "urgent" level — added `URGENT` to the shared enum (migration, purely additive, Housekeeping's UI never offers it). Also added `roomService.getRoomByNumber()` — the ticket form collects a human room number, `MaintenanceTicket.roomId` is a real FK, `createMaintenanceTicketAction` now resolves one to the other and fails cleanly if the room doesn't exist.
+
+Both pages now call their real services directly (Server Components), adapting Prisma's UPPERCASE enums/relations to the shape the UI components already expected — same pattern as every other wired page. Both show an honest banner when no active staff exist to assign to (only 1 real Staff account — the demo owner — currently exists; no housekeeping/maintenance-role logins provisioned yet, so assignment dropdowns are correctly empty, not broken). All 5 actions (housekeeping advance/assign, maintenance create/status-change/assign) go through `requireStaffForAction` + `logAction`.
+
+**Current real state, all 6 screens asked about:** Dashboard, Calendar, Bookings, Rooms, Housekeeping, Maintenance are now ALL fully real — no mock reads or writes remaining in any of them. Verified: clean build, live deploy confirmed (both new routes correctly redirect unauthenticated, no crash).
+
+**Testing note:** wanted to verify end-to-end via a real browser login this session but couldn't get a working demo password quickly (Supabase Admin API's newer `sb_secret_...` key format isn't accepted by `/auth/v1/admin/*` endpoints — same gotcha as the connection-pool session earlier, worth documenting in CLAUDE.md's Supabase gotchas if it comes up again). Verification here is build-clean + code-review + live-redirect-check only, not a real click-through — worth an actual browser pass once login is confirmed working.
