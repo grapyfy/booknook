@@ -17,7 +17,7 @@ import { createRoom } from "@/services/roomService";
 import { createBooking, rescheduleBooking, updateBookingStatus, createGroupBooking, undoBookingStatus } from "@/services/bookingService";
 import { requireStaffForAction } from "@/lib/require-staff";
 import { logAction } from "@/services/auditLogService";
-import { recordPaymentMock, issueCreditNoteMock } from "@/components/lib/paymentsMock";
+import { recordPaymentMock, issueCreditNoteMock, PAYMENT_METHODS } from "@/components/lib/paymentsMock";
 import type { PaymentMethod, PaymentType } from "@/components/lib/paymentsMock";
 import {
   setOpeningBalanceMock,
@@ -38,7 +38,15 @@ import {
   updateMaintenanceTicketStatusMock,
   assignMaintenanceTechnicianMock,
 } from "@/components/lib/maintenanceMock";
+import { MAINTENANCE_CATEGORIES, MAINTENANCE_PRIORITIES } from "@/constants/maintenance";
 import type { MaintenanceStatus, MaintenanceTicket } from "@/components/lib/maintenanceMock";
+import {
+  createRateRuleMock,
+  setRateRuleActiveMock,
+  deleteRateRuleMock,
+} from "@/components/lib/rateRulesMock";
+import { RATE_RULE_TYPES, ADJUSTMENT_TYPES } from "@/constants/rateRules";
+import type { RateRuleType, AdjustmentType } from "@/constants/rateRules";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -367,9 +375,9 @@ export async function assignHousekeepingStaffAction(id: string, staffName: strin
 
 const createMaintenanceTicketSchema = z.object({
   roomNumber: z.string().min(1).max(20),
-  category: z.enum(["electrical", "plumbing", "ac", "furniture", "bathroom", "internet", "appliance", "other"]),
+  category: z.enum(MAINTENANCE_CATEGORIES),
   description: z.string().min(1).max(500),
-  priority: z.enum(["low", "normal", "high", "urgent"]),
+  priority: z.enum(MAINTENANCE_PRIORITIES),
 });
 
 export async function createMaintenanceTicketAction(input: {
@@ -419,7 +427,7 @@ export async function assignMaintenanceTechnicianAction(id: string, technician: 
 
 const recordPaymentSchema = z.object({
   bookingId: z.string().min(1),
-  method: z.enum(["cash", "upi", "card", "bank_transfer"]),
+  method: z.enum(PAYMENT_METHODS),
   type: z.enum(["advance", "partial", "full"]),
   amount: z.number().positive().max(1000000),
   note: z.string().max(200).optional().or(z.literal("")),
@@ -449,7 +457,7 @@ export async function recordPaymentAction(input: {
 
 const refundSchema = z.object({
   bookingId: z.string().min(1),
-  method: z.enum(["cash", "upi", "card", "bank_transfer"]),
+  method: z.enum(PAYMENT_METHODS),
   amount: z.number().positive().max(1000000),
   reason: z.string().min(1).max(300),
 });
@@ -528,6 +536,75 @@ export async function closeRegisterAction(actualAmount: number): Promise<ActionR
     return { ok: false, error: err instanceof Error ? err.message : "Could not close register" };
   }
   revalidatePath("/cash-register");
+  return { ok: true };
+}
+
+// ---- Rate rules (dynamic pricing — see rateRulesMock.ts) ----
+
+const createRateRuleSchema = z
+  .object({
+    name: z.string().min(1).max(80),
+    type: z.enum(RATE_RULE_TYPES),
+    daysOfWeek: z.array(z.number().int().min(0).max(6)).max(7).optional(),
+    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD").optional(),
+    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD").optional(),
+    adjustmentType: z.enum(ADJUSTMENT_TYPES),
+    adjustmentValue: z.number().int().min(0).max(100000),
+    priority: z.number().int().min(0).max(1000).optional(),
+  })
+  .refine((v) => v.type !== "WEEKLY" || (v.daysOfWeek && v.daysOfWeek.length > 0), {
+    message: "Pick at least one day of the week",
+    path: ["daysOfWeek"],
+  })
+  .refine((v) => v.type !== "DATE_RANGE" || (v.startDate && v.endDate && v.startDate <= v.endDate), {
+    message: "Start date must be on or before end date",
+    path: ["endDate"],
+  })
+  .refine((v) => v.adjustmentType !== "PERCENT" || v.adjustmentValue <= 100, {
+    message: "A percent adjustment can't exceed 100",
+    path: ["adjustmentValue"],
+  });
+
+export async function createRateRuleAction(input: {
+  name: string;
+  type: RateRuleType;
+  daysOfWeek?: number[];
+  startDate?: string;
+  endDate?: string;
+  adjustmentType: AdjustmentType;
+  adjustmentValue: number;
+  priority?: number;
+}): Promise<ActionResult> {
+  const parsed = createRateRuleSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid rate rule details" };
+  }
+  try {
+    createRateRuleMock(parsed.data);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not create rate rule" };
+  }
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
+export async function setRateRuleActiveAction(id: string, active: boolean): Promise<ActionResult> {
+  try {
+    setRateRuleActiveMock(id, active);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not update rate rule" };
+  }
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
+export async function deleteRateRuleAction(id: string): Promise<ActionResult> {
+  try {
+    deleteRateRuleMock(id);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not delete rate rule" };
+  }
+  revalidatePath("/settings");
   return { ok: true };
 }
 

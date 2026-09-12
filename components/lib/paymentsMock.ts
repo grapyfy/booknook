@@ -6,8 +6,13 @@
 // CLAUDE.md's BYOG rule (no pooled payments, no gateway wiring here).
 import fs from "fs";
 import path from "path";
+// Payment-method list + labels live in constants/payments.ts (no fs/path
+// import) so client components can import the value without pulling this
+// file's Node-only mock-store code into their bundle.
+import type { PaymentMethod } from "@/constants/payments";
+export type { PaymentMethod };
+export { PAYMENT_METHODS } from "@/constants/payments";
 
-export type PaymentMethod = "cash" | "upi" | "card" | "bank_transfer";
 export type PaymentType = "advance" | "partial" | "full" | "refund";
 
 export interface PaymentRecord {

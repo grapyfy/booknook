@@ -1,13 +1,17 @@
 import Link from "next/link";
 import { listRoomsMock } from "@/components/lib/mockData";
+import { listRateRulesMock } from "@/components/lib/rateRulesMock";
 import { Button } from "@/components/ui/Button";
 import { FormField, Input } from "@/components/ui/Input";
 import { IllustrativeBanner } from "@/components/IllustrativeBanner";
+import { RateRuleForm } from "@/components/forms/RateRuleForm";
+import { RateRuleRow } from "@/components/RateRuleRow";
 
 const TABS = [
   { key: "property", label: "Property" },
   { key: "categories", label: "Room categories" },
   { key: "rooms", label: "Rooms" },
+  { key: "pricing", label: "Pricing" },
   { key: "channels", label: "Channels" },
 ] as const;
 
@@ -19,6 +23,7 @@ export default async function SettingsPage({
   const { tab: tabParam } = await searchParams;
   const tab = TABS.some((t) => t.key === tabParam) ? tabParam! : "property";
   const rooms = listRoomsMock();
+  const rateRules = listRateRulesMock();
 
   const categories = new Map<string, { count: number; rates: number[] }>();
   for (const r of rooms) {
@@ -128,6 +133,44 @@ export default async function SettingsPage({
               Add a room →
             </Link>
           </div>
+        </div>
+      )}
+
+      {tab === "pricing" && (
+        <div className="flex flex-col gap-4">
+          <IllustrativeBanner>
+            Dynamic pricing (weekly/festival rate rules) is real, live backend logic — <span className="font-mono">RateRule</span>{" "}
+            table, migrated, wired into booking pricing (see <span className="font-mono">BACKEND_LOGIC.md</span>). This screen isn&apos;t
+            wired to it yet, so changes here are sample data only, same &quot;mock first, swap once ready&quot; step every screen
+            goes through.
+          </IllustrativeBanner>
+          <div className="rounded-lg border border-neutral-200 bg-white overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-neutral-200 text-left text-neutral-500">
+                  <th className="px-4 py-3 font-medium">Rule</th>
+                  <th className="px-4 py-3 font-medium">When</th>
+                  <th className="px-4 py-3 font-medium">Adjustment</th>
+                  <th className="px-4 py-3 font-medium">Priority</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 font-medium"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {rateRules.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-neutral-400">
+                      No rate rules yet — add one below.
+                    </td>
+                  </tr>
+                )}
+                {rateRules.map((rule) => (
+                  <RateRuleRow key={rule.id} rule={rule} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <RateRuleForm />
         </div>
       )}
 

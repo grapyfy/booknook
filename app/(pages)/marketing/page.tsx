@@ -46,7 +46,7 @@ export default function MarketingPage() {
         before content is explicitly reviewed.
       </IllustrativeBanner>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {segments.map((s) => (
           <div key={s.label} className="rounded-lg border border-neutral-200 bg-white p-4">
             <div className="text-2xl font-semibold font-mono">{s.count}</div>
@@ -58,7 +58,7 @@ export default function MarketingPage() {
 
       <div>
         <h2 className="text-sm font-medium text-neutral-500 mb-3">Campaign templates</h2>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {campaigns.map((c) => (
             <div key={c.name} className="rounded-lg border border-neutral-200 bg-white p-4 flex items-start justify-between gap-3">
               <div className="flex items-start gap-3">

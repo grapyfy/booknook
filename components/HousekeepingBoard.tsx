@@ -65,7 +65,7 @@ function TaskCard({ task }: { task: HousekeepingTask }) {
 
   return (
     <div className="rounded-lg border border-neutral-200 bg-white p-3 flex flex-col gap-2">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <span className="font-mono font-medium">Room {task.roomNumber}</span>
         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${PRIORITY_STYLES[task.priority]}`}>{task.priority}</span>
       </div>
@@ -124,7 +124,7 @@ function TaskCard({ task }: { task: HousekeepingTask }) {
 
 export function HousekeepingBoard({ tasks }: { tasks: HousekeepingTask[] }) {
   return (
-    <div className="grid grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       {COLUMNS.map((col) => {
         const colTasks = tasks.filter((t) => t.status === col.status);
         return (

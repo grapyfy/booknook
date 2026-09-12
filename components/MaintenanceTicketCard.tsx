@@ -20,6 +20,7 @@ import {
   updateMaintenanceTicketStatusAction,
 } from "@/components/lib/actions";
 import { MOCK_STAFF } from "@/constants/staff";
+import { CATEGORY_LABELS } from "@/constants/maintenance";
 import type { MaintenanceTicket, MaintenanceStatus } from "@/components/lib/maintenanceMock";
 
 const CATEGORY_ICONS: Record<MaintenanceTicket["category"], typeof faBolt> = {
@@ -31,17 +32,6 @@ const CATEGORY_ICONS: Record<MaintenanceTicket["category"], typeof faBolt> = {
   internet: faWifi,
   appliance: faPlug,
   other: faScrewdriverWrench,
-};
-
-const CATEGORY_LABELS: Record<MaintenanceTicket["category"], string> = {
-  electrical: "Electrical",
-  plumbing: "Plumbing",
-  ac: "AC",
-  furniture: "Furniture",
-  bathroom: "Bathroom",
-  internet: "Internet",
-  appliance: "Appliance",
-  other: "Other",
 };
 
 const STATUS_STYLES: Record<MaintenanceStatus, string> = {
@@ -114,7 +104,7 @@ export function MaintenanceTicketCard({ ticket }: { ticket: MaintenanceTicket })
 
       {error && <p className="text-xs text-red-600">{error}</p>}
 
-      <div className="flex items-center justify-between gap-3 pt-2 border-t border-neutral-100">
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-neutral-100">
         <div className="flex items-center gap-2 text-sm">
           <span className="text-neutral-500">Technician:</span>
           <Select

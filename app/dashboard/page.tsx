@@ -62,7 +62,7 @@ export default async function DashboardPage({
   return (
     <AppShell>
       <div className="flex flex-col gap-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-xl font-semibold">Dashboard</h1>
             <p className="text-sm text-neutral-500">Here&apos;s what&apos;s happening at your hotel.</p>
@@ -70,7 +70,7 @@ export default async function DashboardPage({
           <DashboardViewToggle detailed={detailed} />
         </div>
 
-        <div className={`grid gap-4 ${detailed ? "grid-cols-3 lg:grid-cols-6" : "grid-cols-4"}`}>
+        <div className={`grid grid-cols-2 gap-4 ${detailed ? "sm:grid-cols-3 lg:grid-cols-6" : "sm:grid-cols-4"}`}>
           <StatCard
             icon={faCalendarCheck}
             label="Bookings (7d)"
@@ -103,8 +103,8 @@ export default async function DashboardPage({
         </div>
 
         {detailed && (
-          <div className="grid grid-cols-3 gap-4">
-            <div className="col-span-2 rounded-lg border border-neutral-200 bg-white p-5">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2 rounded-lg border border-neutral-200 bg-white p-5">
               <h2 className="text-sm font-medium mb-4">Revenue — last 7 days</h2>
               <RevenueLineChart data={stats.revenueByDay} />
             </div>
@@ -116,7 +116,7 @@ export default async function DashboardPage({
         )}
 
         {detailed && (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="rounded-lg border border-neutral-200 bg-white p-5">
               <h2 className="text-sm font-medium mb-3">Arrivals today ({stats.arrivalsToday.length})</h2>
               <div className="flex flex-col gap-2">
@@ -148,8 +148,8 @@ export default async function DashboardPage({
           </div>
         )}
 
-        <div className="grid grid-cols-3 gap-4">
-          <div className="col-span-2">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-medium text-neutral-500">Recent bookings</h2>
               <Link href="/bookings" className="text-sm text-blue-600 hover:underline">

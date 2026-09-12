@@ -55,7 +55,7 @@ export default function ImportPage() {
 
       {report && (
         <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="rounded-lg border border-neutral-200 bg-white p-4">
               <div className="text-2xl font-semibold font-mono">{report.totalRows}</div>
               <div className="text-sm text-neutral-500">Total rows</div>

@@ -1,13 +1,10 @@
 import { db } from "@/lib/db";
 import { getPropertySettings } from "@/services/settingsService";
+import { gstRateForRoomRate, type GstConfig } from "@/lib/gst";
+
+export type { GstConfig };
 
 const SAC_CODE_ACCOMMODATION = "996311";
-
-export interface GstConfig {
-  thresholdRupees: number;
-  lowRatePercent: number;
-  highRatePercent: number;
-}
 
 // Reads the configured slab from PropertySettings instead of a hardcoded constant —
 // these three numbers are government-notified (CBIC), not a business choice, so
@@ -22,10 +19,6 @@ export async function getGstConfig(): Promise<GstConfig> {
     lowRatePercent: settings.gstLowRatePercent,
     highRatePercent: settings.gstHighRatePercent,
   };
-}
-
-function gstRateForRoomRate(roomRatePerNight: number, config: GstConfig): number {
-  return roomRatePerNight > config.thresholdRupees ? config.highRatePercent : config.lowRatePercent;
 }
 
 async function nextInvoiceNumber(): Promise<string> {

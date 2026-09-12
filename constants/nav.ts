@@ -18,6 +18,7 @@ import {
   faBuilding,
   faTruck,
   faStar,
+  faClockRotateLeft,
 } from "@fortawesome/free-solid-svg-icons";
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 
@@ -75,6 +76,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Import", href: "/import", icon: faFileImport },
       { label: "Vendors", href: "/vendors", icon: faTruck },
       { label: "Users & roles", href: "/users", icon: faUserShield },
+      { label: "Activity log", href: "/activity-log", icon: faClockRotateLeft },
       { label: "Settings", href: "/settings", icon: faGear },
     ],
   },

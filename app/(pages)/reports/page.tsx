@@ -1,20 +1,18 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFileCsv, faEnvelope, faReceipt } from "@fortawesome/free-solid-svg-icons";
-import { listFoliosMock } from "@/components/lib/mockData";
+import { listFoliosMock, nightsBetween, gstRateForRoomRate } from "@/components/lib/mockData";
 import { computeBookingBalanceMock } from "@/components/lib/paymentsMock";
 import { getDashboardStats } from "@/services/dashboardService";
 import { listBookings } from "@/services/bookingService";
 import { Button } from "@/components/ui/Button";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
 
-function nightsBetween(checkIn: string, checkOut: string): number {
-  return Math.max(1, Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000));
-}
-
 // occupancy/ADR/RevPAR and the booking list are real (dashboardService/bookingService).
 // GSTR-1 export and outstanding-balance still read from the mock payments/folio layer —
 // the real Payment/CreditNote backend isn't built yet (flagged in STATUS.md's
-// "Billing/Payments depth" gap, not something silently skipped here).
+// "Billing/Payments depth" gap, not something silently skipped here). nightsBetween/
+// gstRateForRoomRate come from mockData.ts's shared exports (Gautam's hardcoded-values
+// audit) rather than a locally re-declared copy — same single-source-of-truth fix.
 export default async function ReportsPage() {
   const stats = await getDashboardStats();
   const bookings = await listBookings();
@@ -27,8 +25,7 @@ export default async function ReportsPage() {
     .map((b) => {
       const nights = nightsBetween(b.checkIn, b.checkOut);
       const serviceTotal = (b.extraServices ?? []).reduce((sum, s) => sum + s.amount, 0);
-      // Same 12%/18% slab math as generateFolioMock, without persisting a folio.
-      const gstRate = b.amount / nights > 7500 ? 18 : 12;
+      const gstRate = gstRateForRoomRate(b.amount / nights);
       const roomTotalInclGst = Math.round(b.amount * (1 + gstRate / 100));
       const totalDue = roomTotalInclGst + serviceTotal;
       const balance = computeBookingBalanceMock(b.id, totalDue);
@@ -77,7 +74,7 @@ export default async function ReportsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">Reports</h1>
           <p className="text-sm text-neutral-500">Occupancy, rate, and revenue — last 7 days.</p>
@@ -100,7 +97,7 @@ export default async function ReportsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-lg border border-neutral-200 bg-white p-5">
           <div className="text-sm text-neutral-500">Occupancy</div>
           <div className="text-2xl font-semibold font-mono">{stats.occupancyRate}%</div>

@@ -10,6 +10,7 @@ import { FormField, Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import type { Room } from "@/types/room";
 import type { Guest, Booking } from "@/types/booking";
+import { gstRateForRoomRate, type GstConfig } from "@/lib/gst";
 
 const ID_TYPE_LABELS: Record<NonNullable<Guest["idType"]>, string> = {
   aadhaar: "Aadhaar",
@@ -28,12 +29,6 @@ const PAYMENT_STATUS_OPTIONS: { value: NonNullable<Booking["paymentStatus"]>; la
 interface ServiceRow {
   name: string;
   amount: string;
-}
-
-interface GstConfig {
-  thresholdRupees: number;
-  lowRatePercent: number;
-  highRatePercent: number;
 }
 
 export function NewBookingForm({ rooms, gstConfig }: { rooms: Room[]; gstConfig: GstConfig }) {
@@ -113,7 +108,7 @@ export function NewBookingForm({ rooms, gstConfig }: { rooms: Room[]; gstConfig:
   // Never trust this number; it's just so front desk sees a real tax-inclusive
   // total before saving, matching what the folio will actually show.
   const roomTotal = subtotal - discountValue;
-  const gstRate = effectiveRate > gstConfig.thresholdRupees ? gstConfig.highRatePercent : gstConfig.lowRatePercent;
+  const gstRate = gstRateForRoomRate(effectiveRate, gstConfig);
   const gstAmount = Math.round((roomTotal * gstRate) / 100);
   const roomTotalWithTax = roomTotal + gstAmount;
   // Extra services aren't run through GST in the real invoice yet (billing-depth
@@ -180,7 +175,7 @@ export function NewBookingForm({ rooms, gstConfig }: { rooms: Room[]; gstConfig:
         <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
       </FormField>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <FormField label="ID type (KYC, optional)" htmlFor="idType">
           <Select id="idType" value={idType} onChange={(e) => setIdType(e.target.value as Guest["idType"] | "")}>
             <option value="">Not captured</option>
@@ -202,7 +197,7 @@ export function NewBookingForm({ rooms, gstConfig }: { rooms: Room[]; gstConfig:
         </FormField>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <FormField label="Check-in" htmlFor="checkIn">
           <Input id="checkIn" type="date" required value={checkIn} onChange={(e) => setCheckIn(e.target.value)} />
         </FormField>
@@ -244,7 +239,7 @@ export function NewBookingForm({ rooms, gstConfig }: { rooms: Room[]; gstConfig:
           Everything here is a proposal the server re-derives the amount from,
           never a final total accepted as-is (see createBookingMock). */}
       <div className="rounded-lg border border-neutral-200 p-4 flex flex-col gap-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <span className="text-sm font-medium text-neutral-700">Pricing</span>
           <button
             type="button"

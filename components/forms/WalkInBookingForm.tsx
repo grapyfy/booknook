@@ -10,12 +10,7 @@ import { FormField, Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import type { Room } from "@/types/room";
 import type { Booking } from "@/types/booking";
-
-interface GstConfig {
-  thresholdRupees: number;
-  lowRatePercent: number;
-  highRatePercent: number;
-}
+import { gstRateForRoomRate, type GstConfig } from "@/lib/gst";
 
 const PAYMENT_STATUS_OPTIONS: { value: NonNullable<Booking["paymentStatus"]>; label: string }[] = [
   { value: "postpaid", label: "Postpaid — pay at checkout" },
@@ -84,7 +79,7 @@ export function WalkInBookingForm({ rooms, gstConfig }: { rooms: Room[]; gstConf
   const subtotal = ratePerNight * nights;
   // Same real, configured GST slab as NewBookingForm (never a hardcoded duplicate) —
   // preview only, generateFolio recomputes this for real on save.
-  const gstRate = ratePerNight > gstConfig.thresholdRupees ? gstConfig.highRatePercent : gstConfig.lowRatePercent;
+  const gstRate = gstRateForRoomRate(ratePerNight, gstConfig);
   const gstAmount = Math.round((subtotal * gstRate) / 100);
   const estimatedAmount = subtotal + gstAmount;
 
@@ -126,7 +121,7 @@ export function WalkInBookingForm({ rooms, gstConfig }: { rooms: Room[]; gstConf
           onChange={(e) => setPhone(e.target.value)}
         />
       </FormField>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <FormField label="Check-in" htmlFor="checkIn">
           <Input id="checkIn" type="date" required value={checkIn} onChange={(e) => setCheckIn(e.target.value)} />
         </FormField>

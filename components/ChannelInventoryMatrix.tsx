@@ -48,7 +48,7 @@ export function ChannelInventoryMatrix({ roomTypes, entries }: { roomTypes: stri
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-neutral-400">
           Click a cell to toggle. This updates GRAP&apos;s own record only — no real OTA is connected, so nothing
           is actually pushed anywhere.

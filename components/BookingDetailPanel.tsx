@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faXmark, faPhone, faFileInvoice, faNoteSticky } from "@fortawesome/free-solid-svg-icons";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { nightsBetween } from "@/lib/dates";
 import type { Booking } from "@/types/booking";
 
 const PAYMENT_STATUS_STYLES: Record<NonNullable<Booking["paymentStatus"]>, string> = {
@@ -17,10 +18,6 @@ const PAYMENT_STATUS_LABELS: Record<NonNullable<Booking["paymentStatus"]>, strin
   postpaid: "Postpaid (pay at checkout)",
   partial: "Partially paid",
 };
-
-function nightsBetween(checkIn: string, checkOut: string): number {
-  return Math.max(1, Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000));
-}
 
 export function BookingDetailPanel({ booking, onClose }: { booking: Booking; onClose: () => void }) {
   const nights = nightsBetween(booking.checkIn, booking.checkOut);

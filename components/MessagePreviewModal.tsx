@@ -26,7 +26,7 @@ export function MessagePreviewModal({ customer, onClose }: { customer: CustomerS
         className="bg-white rounded-lg border border-neutral-200 max-w-md w-full p-6 flex flex-col gap-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-semibold">Message preview — {customer.name}</h2>
           <button onClick={onClose} className="text-neutral-400 hover:text-neutral-900">
             <FontAwesomeIcon icon={faXmark} className="h-4 w-4" />

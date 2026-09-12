@@ -18,6 +18,7 @@ import type { Booking, Folio, Guest, ExtraService } from "@/types/booking";
 import { MOCK_BOOKINGS } from "@/types/booking";
 import type { Room } from "@/types/room";
 import { MOCK_ROOMS } from "@/types/room";
+import { nightsBetween } from "@/lib/dates";
 
 interface Store {
   bookings: Booking[];
@@ -46,10 +47,10 @@ function newId(store: Store, prefix: string): string {
   return `${prefix}${store.nextId}`;
 }
 
-function nightsBetween(checkIn: string, checkOut: string): number {
-  const ms = new Date(checkOut).getTime() - new Date(checkIn).getTime();
-  return Math.max(1, Math.round(ms / (1000 * 60 * 60 * 24)));
-}
+// Re-exported from lib/dates.ts (the client-safe home for this) so existing
+// importers of it from here don't need to change; see RULES.md's "single
+// source of truth" rule.
+export { nightsBetween };
 
 // ---- Rooms ----
 
@@ -487,7 +488,11 @@ const GST_HIGH_RATE = 18;
 const GST_THRESHOLD = 7500;
 const SAC_CODE_ACCOMMODATION = "996311";
 
-function gstRateForRoomRate(roomRatePerNight: number): number {
+// Exported so anywhere else that needs to preview/report GST (e.g. /reports'
+// outstanding-amount math) computes it from this one slab rule instead of
+// re-declaring the 7,500 threshold — see RULES.md's "no hardcoded, single
+// source of truth" rule.
+export function gstRateForRoomRate(roomRatePerNight: number): number {
   return roomRatePerNight > GST_THRESHOLD ? GST_HIGH_RATE : GST_LOW_RATE;
 }
 

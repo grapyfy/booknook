@@ -97,7 +97,7 @@ export function GroupBookingForm({ rooms }: { rooms: Room[] }) {
       <FormField label="Group name" htmlFor="groupName">
         <Input id="groupName" required placeholder="e.g. Sharma Wedding Party" value={groupName} onChange={(e) => setGroupName(e.target.value)} />
       </FormField>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <FormField label="Contact name" htmlFor="contactName">
           <Input id="contactName" required value={contactName} onChange={(e) => setContactName(e.target.value)} />
         </FormField>

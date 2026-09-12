@@ -10,13 +10,7 @@ import { Select } from "@/components/ui/Select";
 import { recordPaymentAction, refundBookingAction, voidFolioAction } from "@/components/lib/actions";
 import type { PaymentRecord, PaymentMethod, CreditNote } from "@/components/lib/paymentsMock";
 import type { BookingBalance } from "@/components/lib/paymentsMock";
-
-const METHOD_LABELS: Record<PaymentMethod, string> = {
-  cash: "Cash",
-  upi: "UPI",
-  card: "Card",
-  bank_transfer: "Bank transfer",
-};
+import { METHOD_LABELS } from "@/constants/payments";
 
 export function PaymentPanel({
   bookingId,
@@ -97,7 +91,7 @@ export function PaymentPanel({
 
   return (
     <div className="rounded-lg border border-neutral-200 bg-white p-6 flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="font-medium text-sm">Payments</div>
         <div
           className={`text-sm font-semibold px-3 py-1 rounded-full ${
@@ -156,7 +150,7 @@ export function PaymentPanel({
 
       {showRecordForm && (
         <form onSubmit={submitPayment} className="flex flex-col gap-3 border-t border-neutral-100 pt-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Select value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)}>
               {Object.entries(METHOD_LABELS).map(([v, l]) => (
                 <option key={v} value={v}>

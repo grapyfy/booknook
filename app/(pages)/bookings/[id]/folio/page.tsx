@@ -8,6 +8,7 @@ import { listPaymentsForBookingMock, listCreditNotesForBookingMock, computeBooki
 import { listFoliosMock } from "@/components/lib/mockData";
 import { Button } from "@/components/ui/Button";
 import { PaymentPanel } from "@/components/PaymentPanel";
+import { nightsBetween } from "@/lib/dates";
 import type { Booking, Folio } from "@/types/booking";
 
 const PAYMENT_STATUS_STYLES: Record<string, string> = {
@@ -21,10 +22,6 @@ const PAYMENT_STATUS_LABELS: Record<string, string> = {
   postpaid: "Postpaid — pay at checkout",
   partial: "Partially paid",
 };
-
-function nightsBetween(checkIn: string, checkOut: string): number {
-  return Math.max(1, Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000));
-}
 
 export default async function FolioPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
