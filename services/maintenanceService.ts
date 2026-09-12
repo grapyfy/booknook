@@ -21,7 +21,7 @@ export async function listTickets(status?: MaintenanceStatus) {
 export async function createTicket(input: {
   roomId?: string;
   category: string;
-  priority: "LOW" | "NORMAL" | "HIGH";
+  priority: "LOW" | "NORMAL" | "HIGH" | "URGENT";
   description: string;
 }) {
   return db.maintenanceTicket.create({ data: input });

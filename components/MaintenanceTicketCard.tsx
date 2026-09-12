@@ -19,9 +19,17 @@ import {
   assignMaintenanceTechnicianAction,
   updateMaintenanceTicketStatusAction,
 } from "@/components/lib/actions";
-import { MOCK_STAFF } from "@/constants/staff";
 import { CATEGORY_LABELS } from "@/constants/maintenance";
 import type { MaintenanceTicket, MaintenanceStatus } from "@/components/lib/maintenanceMock";
+
+// Real staff (real IDs) passed from the page — assignTechnician needs a real
+// staffId, not a free-text name. No "unassign" option: the real service always
+// requires a staffId for the assign action (matches maintenanceService.ts).
+export interface StaffOption {
+  id: string;
+  name: string;
+}
+type TicketWithRealAssignee = MaintenanceTicket & { assignedToId?: string };
 
 const CATEGORY_ICONS: Record<MaintenanceTicket["category"], typeof faBolt> = {
   electrical: faBolt,
@@ -50,17 +58,18 @@ const PRIORITY_STYLES: Record<MaintenanceTicket["priority"], string> = {
   urgent: "bg-red-100 text-red-700",
 };
 
-export function MaintenanceTicketCard({ ticket }: { ticket: MaintenanceTicket }) {
+export function MaintenanceTicketCard({ ticket, staff }: { ticket: TicketWithRealAssignee; staff: StaffOption[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [costInput, setCostInput] = useState("");
   const [resolving, setResolving] = useState(false);
 
-  function assignTechnician(name: string) {
+  function assignTechnician(staffId: string) {
+    if (!staffId) return; // no "unassign" — the real service always requires a staffId
     setError(null);
     startTransition(async () => {
-      const result = await assignMaintenanceTechnicianAction(ticket.id, name);
+      const result = await assignMaintenanceTechnicianAction(ticket.id, staffId);
       if (!result.ok) {
         setError(result.error);
         return;
@@ -108,14 +117,14 @@ export function MaintenanceTicketCard({ ticket }: { ticket: MaintenanceTicket })
         <div className="flex items-center gap-2 text-sm">
           <span className="text-neutral-500">Technician:</span>
           <Select
-            value={ticket.assignedTechnician ?? ""}
+            value={ticket.assignedToId ?? ""}
             onChange={(e) => assignTechnician(e.target.value)}
             disabled={pending || ticket.status === "closed"}
             className="text-sm py-1"
           >
             <option value="">Unassigned</option>
-            {MOCK_STAFF.map((s) => (
-              <option key={s.email} value={s.name}>
+            {staff.map((s) => (
+              <option key={s.id} value={s.id}>
                 {s.name}
               </option>
             ))}

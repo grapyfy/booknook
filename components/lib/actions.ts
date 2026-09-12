@@ -34,11 +34,8 @@ import type { ImportReport } from "@/components/lib/mockData";
 import type { Booking } from "@/types/booking";
 import type { HousekeepingStatus } from "@/components/lib/housekeepingMock";
 import { advanceTaskStatus, assignTask } from "@/services/housekeepingService";
-import {
-  createMaintenanceTicketMock,
-  updateMaintenanceTicketStatusMock,
-  assignMaintenanceTechnicianMock,
-} from "@/components/lib/maintenanceMock";
+import { createTicket, updateTicketStatus, assignTechnician } from "@/services/maintenanceService";
+import { getRoomByNumber } from "@/services/roomService";
 import { MAINTENANCE_CATEGORIES, MAINTENANCE_PRIORITIES } from "@/constants/maintenance";
 import type { MaintenanceStatus, MaintenanceTicket } from "@/components/lib/maintenanceMock";
 import {
@@ -408,18 +405,47 @@ const createMaintenanceTicketSchema = z.object({
   priority: z.enum(MAINTENANCE_PRIORITIES),
 });
 
+const MAINTENANCE_PRIORITY_TO_PRISMA: Record<string, "LOW" | "NORMAL" | "HIGH" | "URGENT"> = {
+  low: "LOW",
+  normal: "NORMAL",
+  high: "HIGH",
+  urgent: "URGENT",
+};
+const MAINTENANCE_STATUS_TO_PRISMA: Record<MaintenanceStatus, "OPEN" | "ASSIGNED" | "IN_PROGRESS" | "WAITING" | "RESOLVED" | "CLOSED"> = {
+  open: "OPEN",
+  assigned: "ASSIGNED",
+  "in-progress": "IN_PROGRESS",
+  waiting: "WAITING",
+  resolved: "RESOLVED",
+  closed: "CLOSED",
+};
+
 export async function createMaintenanceTicketAction(input: {
   roomNumber: string;
   category: MaintenanceTicket["category"];
   description: string;
   priority: MaintenanceTicket["priority"];
 }): Promise<ActionResult> {
+  let staff;
+  try {
+    staff = await requireStaffForAction();
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Not authenticated" };
+  }
   const parsed = createMaintenanceTicketSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid ticket details" };
   }
   try {
-    createMaintenanceTicketMock(parsed.data);
+    const room = await getRoomByNumber(parsed.data.roomNumber);
+    if (!room) return { ok: false, error: `Room ${parsed.data.roomNumber} does not exist` };
+    const ticket = await createTicket({
+      roomId: room.id,
+      category: parsed.data.category,
+      description: parsed.data.description,
+      priority: MAINTENANCE_PRIORITY_TO_PRISMA[parsed.data.priority],
+    });
+    await logAction({ staffId: staff.id, action: "maintenance.create", entityType: "MaintenanceTicket", entityId: ticket.id, details: { roomNumber: parsed.data.roomNumber, category: parsed.data.category } });
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not create ticket" };
   }
@@ -432,8 +458,15 @@ export async function updateMaintenanceTicketStatusAction(
   next: MaintenanceStatus,
   cost?: number
 ): Promise<ActionResult> {
+  let staff;
   try {
-    updateMaintenanceTicketStatusMock(id, next, cost);
+    staff = await requireStaffForAction();
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Not authenticated" };
+  }
+  try {
+    await updateTicketStatus(id, MAINTENANCE_STATUS_TO_PRISMA[next], cost);
+    await logAction({ staffId: staff.id, action: "maintenance.status_change", entityType: "MaintenanceTicket", entityId: id, details: { to: next, cost } });
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not update ticket" };
   }
@@ -441,9 +474,16 @@ export async function updateMaintenanceTicketStatusAction(
   return { ok: true };
 }
 
-export async function assignMaintenanceTechnicianAction(id: string, technician: string): Promise<ActionResult> {
+export async function assignMaintenanceTechnicianAction(id: string, staffId: string): Promise<ActionResult> {
+  let staff;
   try {
-    assignMaintenanceTechnicianMock(id, technician);
+    staff = await requireStaffForAction();
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Not authenticated" };
+  }
+  try {
+    await assignTechnician(id, staffId);
+    await logAction({ staffId: staff.id, action: "maintenance.assign", entityType: "MaintenanceTicket", entityId: id, details: { assignedToId: staffId } });
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not assign technician" };
   }

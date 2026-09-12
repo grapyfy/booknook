@@ -282,6 +282,11 @@ enum TaskPriority {
   LOW
   NORMAL
   HIGH
+  // Maintenance-only in practice (a housekeeping task never needs it, the UI
+  // simply never offers it there) — added because a maintenance issue can
+  // genuinely be more urgent than "high" (e.g. a water leak vs. a squeaky
+  // door), matching MaintenanceTicketCard.tsx's existing 4-level UI.
+  URGENT
 }
 
 model MaintenanceTicket {

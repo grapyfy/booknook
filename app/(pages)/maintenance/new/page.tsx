@@ -1,8 +1,8 @@
-import { listRoomsMock } from "@/components/lib/mockData";
+import { listRooms } from "@/services/roomService";
 import { MaintenanceTicketForm } from "@/components/forms/MaintenanceTicketForm";
 
-export default function NewMaintenanceTicketPage() {
-  const rooms = listRoomsMock();
+export default async function NewMaintenanceTicketPage() {
+  const rooms = await listRooms();
 
   return (
     <div className="flex flex-col gap-4">

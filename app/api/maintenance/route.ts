@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
 const schema = z.object({
   roomId: z.string().uuid().optional(),
   category: z.string().min(1).max(60),
-  priority: z.enum(["LOW", "NORMAL", "HIGH"]),
+  priority: z.enum(["LOW", "NORMAL", "HIGH", "URGENT"]),
   description: z.string().min(1).max(2000),
 });
 

@@ -41,6 +41,14 @@ export async function getRoomById(id: string): Promise<Room | null> {
   return row ? toContractShape(row) : null;
 }
 
+// The reverse lookup — used when a caller (e.g. the maintenance ticket form) only
+// has the human-friendly roomNumber but the underlying table (MaintenanceTicket)
+// stores a real roomId foreign key.
+export async function getRoomByNumber(roomNumber: string): Promise<Room | null> {
+  const row = await db.room.findUnique({ where: { roomNumber } });
+  return row ? toContractShape(row) : null;
+}
+
 // Active rooms with no CONFIRMED/CHECKED_IN booking whose date range overlaps
 // [checkIn, checkOut) — same interval-overlap test and same two statuses as
 // bookingService.findOverbookingConflicts, so "available" here means the same
