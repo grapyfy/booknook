@@ -25,6 +25,10 @@ export async function updatePropertySettings(input: {
   gstThresholdRupees?: number;
   gstLowRatePercent?: number;
   gstHighRatePercent?: number;
+  // Hotel-wide expected check-in/check-out time, used to prefill a new booking's
+  // own (per-booking-overridable) time fields — "14:00"/"11:00" format.
+  defaultCheckInTime?: string;
+  defaultCheckOutTime?: string;
 }) {
   const existing = await getPropertySettings();
   return db.propertySettings.update({ where: { id: existing.id }, data: input });

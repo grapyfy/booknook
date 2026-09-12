@@ -3,6 +3,7 @@ import type { Prisma, BookingStatus, BookingSource, PaymentStatus } from "@prism
 import type { Booking } from "@/types/booking";
 import { getActiveRoomRate, assertRoomAvailable } from "@/services/roomService";
 import { computeNightlyPricing } from "@/services/rateRuleService";
+import { getPropertySettings } from "@/services/settingsService";
 
 function nightsBetween(checkIn: string, checkOut: string): number {
   const ms = new Date(checkOut).getTime() - new Date(checkIn).getTime();
@@ -92,6 +93,8 @@ function toContractShape(row: BookingWithRelations): Booking {
       : undefined,
     discountAmount: row.discountAmount ?? undefined,
     priceNote: row.priceNote ?? undefined,
+    checkInTime: row.checkInTime ?? undefined,
+    checkOutTime: row.checkOutTime ?? undefined,
   };
 }
 
@@ -129,6 +132,11 @@ export interface CreateBookingInput {
   paymentStatus?: NonNullable<Booking["paymentStatus"]>;
   priceNote?: string;
   groupId?: string;
+  // Expected check-in/check-out time — defaults to the hotel's configured
+  // PropertySettings values when not explicitly given, so this is never
+  // actually undefined on a newly created booking.
+  checkInTime?: string;
+  checkOutTime?: string;
 }
 
 export async function createBooking(input: CreateBookingInput): Promise<Booking> {
@@ -162,10 +170,22 @@ export async function createBooking(input: CreateBookingInput): Promise<Booking>
   const discountAmount = Math.min(Math.max(input.discountAmount ?? 0, 0), subtotal);
   const amount = subtotal - discountAmount;
 
+  // Fall back to the hotel's configured default times when a booking doesn't
+  // specify its own — never leaves this genuinely unset for a new booking.
+  let checkInTime = input.checkInTime;
+  let checkOutTime = input.checkOutTime;
+  if (!checkInTime || !checkOutTime) {
+    const settings = await getPropertySettings();
+    checkInTime ??= settings.defaultCheckInTime;
+    checkOutTime ??= settings.defaultCheckOutTime;
+  }
+
   const row = await db.booking.create({
     data: {
       checkIn: new Date(input.checkIn),
       checkOut: new Date(input.checkOut),
+      checkInTime,
+      checkOutTime,
       roomNumber: input.roomNumber,
       roomRatePerNight: effectiveRate, // the rate actually charged, not the room's list rate — see schema comment
       amount,
@@ -200,7 +220,7 @@ export async function createBooking(input: CreateBookingInput): Promise<Booking>
 // new) room's real rate, same "never trust a client amount" rule as creation.
 export async function rescheduleBooking(
   id: string,
-  updates: { roomNumber?: string; checkIn?: string; checkOut?: string }
+  updates: { roomNumber?: string; checkIn?: string; checkOut?: string; checkInTime?: string; checkOutTime?: string }
 ): Promise<Booking> {
   const existing = await db.booking.findUniqueOrThrow({ where: { id } });
   if (["CHECKED_OUT", "CANCELLED", "NO_SHOW"].includes(existing.status)) {
@@ -236,7 +256,18 @@ export async function rescheduleBooking(
 
   const row = await db.booking.update({
     where: { id },
-    data: { roomNumber, checkIn: new Date(checkIn), checkOut: new Date(checkOut), roomRatePerNight, amount },
+    data: {
+      roomNumber,
+      checkIn: new Date(checkIn),
+      checkOut: new Date(checkOut),
+      roomRatePerNight,
+      amount,
+      // Undefined means "leave as-is" to Prisma — only touches these if the
+      // caller explicitly provided a new time, matching how roomNumber/dates
+      // already fall back to the existing value above.
+      checkInTime: updates.checkInTime,
+      checkOutTime: updates.checkOutTime,
+    },
     include: INCLUDE,
   });
   return toContractShape(row);
@@ -314,6 +345,10 @@ export async function createGroupBooking(input: {
 }): Promise<Booking[]> {
   if (input.rooms.length < 2) throw new Error("A group booking needs at least 2 rooms");
 
+  // Fetched once outside the transaction — same default-time fallback as a
+  // single createBooking, applied to every room in the group.
+  const settings = await getPropertySettings();
+
   return db.$transaction(async (tx) => {
     const group = await tx.bookingGroup.create({ data: { name: input.groupName } });
     const bookings: Booking[] = [];
@@ -326,6 +361,8 @@ export async function createGroupBooking(input: {
         data: {
           checkIn: new Date(checkIn),
           checkOut: new Date(checkOut),
+          checkInTime: settings.defaultCheckInTime,
+          checkOutTime: settings.defaultCheckOutTime,
           roomNumber,
           roomRatePerNight,
           amount: roomRatePerNight * nights,

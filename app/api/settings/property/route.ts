@@ -24,6 +24,10 @@ const schema = z.object({
   gstThresholdRupees: z.number().int().positive().max(1000000).optional(),
   gstLowRatePercent: z.number().int().min(0).max(100).optional(),
   gstHighRatePercent: z.number().int().min(0).max(100).optional(),
+  // Hotel-wide expected check-in/check-out time, prefills a new booking's own
+  // (per-booking-overridable) time fields.
+  defaultCheckInTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Expected 24h HH:mm").optional(),
+  defaultCheckOutTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Expected 24h HH:mm").optional(),
 });
 
 // Property/GST details — OWNER only, not every front-desk login.

@@ -114,6 +114,19 @@ model Booking {
   priceNote       String?        // free-text reason for a manual rate override/discount — audit trail only, never used in any calculation
   extraServices   ExtraService[]
 
+  // Expected check-in/check-out TIME (2026-09-12 addition, contract-approved) —
+  // "14:00"/"11:00" (24h HH:mm), deliberately separate from checkIn/checkOut
+  // (which stay date-only) so every existing date comparison in the codebase
+  // (calendar, availability, GST nights math) is completely unaffected. Absent
+  // = defaults to PropertySettings.defaultCheckInTime/defaultCheckOutTime at
+  // creation time, so this is never actually null for a new booking even
+  // though the column itself is nullable (legacy rows before this migration
+  // will be null). The ACTUAL moment a booking's status flips to
+  // checked-in/checked-out is separately captured in AuditLog's createdAt —
+  // this field is the planned/expected time, not a record of what happened.
+  checkInTime     String?
+  checkOutTime    String?
+
   @@index([guestId])
   @@index([checkIn, checkOut])
   @@index([roomNumber])
@@ -325,6 +338,12 @@ model PropertySettings {
   gstThresholdRupees Int @default(7500)
   gstLowRatePercent  Int @default(12)
   gstHighRatePercent Int @default(18)
+  // Hotel-wide expected check-in/check-out time ("14:00"/"11:00", 24h HH:mm) —
+  // owner-customizable, used to prefill a new booking's own time fields below.
+  // Standard hotel-industry defaults (2 PM in, 11 AM out) chosen so an owner
+  // who never touches this setting still gets a sensible value everywhere.
+  defaultCheckInTime  String @default("14:00")
+  defaultCheckOutTime String @default("11:00")
   updatedAt  DateTime @updatedAt
 }
 

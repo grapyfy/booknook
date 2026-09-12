@@ -17,6 +17,8 @@ const rescheduleSchema = z.object({
   roomNumber: z.string().min(1).max(20).optional(),
   checkIn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   checkOut: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  checkInTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Expected 24h HH:mm").optional(),
+  checkOutTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Expected 24h HH:mm").optional(),
 });
 
 // Covers extend/shorten stay, move room, and calendar drag-and-drop — all the same

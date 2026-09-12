@@ -35,6 +35,15 @@ export interface Booking {
   // Pricing-control additions (2026-09-08) — also additive/optional.
   discountAmount?: number; // flat rupee discount applied when this booking was created, already netted into `amount` — kept separately just so the folio can show it as a line item
   priceNote?: string; // free-text reason for a manual rate override/discount (e.g. "Corporate rate", "GM approved 10% off") — audit trail, not used in any calculation
+  // Check-in/checkout TIME (2026-09-12, contract-approved by Abhay+Gautam) — "14:00"/
+  // "11:00" (24h HH:mm), deliberately separate from checkIn/checkOut (which stay
+  // date-only) so no existing date comparison (calendar, availability, GST nights
+  // math) is affected. Defaults to the hotel's PropertySettings.defaultCheckInTime/
+  // defaultCheckOutTime when not explicitly set on a booking. This is the PLANNED
+  // time — the ACTUAL check-in/check-out moment is separately recorded in the audit
+  // log (every status change already logs a real timestamp).
+  checkInTime?: string;
+  checkOutTime?: string;
 }
 
 // A single add-on charge against a booking (room service, laundry, minibar...).
