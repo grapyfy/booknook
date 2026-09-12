@@ -7,7 +7,7 @@ import { requireStaff } from "@/lib/require-staff";
 // (advance) separate from plain field edits (assign/details), matching how the UI
 // branch's mock actions are split.
 const schema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("advance") }),
+  z.object({ action: z.literal("advance"), next: z.enum(["DIRTY", "CLEANING", "INSPECTED", "READY"]) }),
   z.object({ action: z.literal("assign"), staffId: z.string().uuid().nullable() }),
   z.object({
     action: z.literal("update-details"),
@@ -26,7 +26,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
   try {
-    if (parsed.data.action === "advance") return NextResponse.json(await advanceTaskStatus(id));
+    if (parsed.data.action === "advance") return NextResponse.json(await advanceTaskStatus(id, parsed.data.next));
     if (parsed.data.action === "assign") return NextResponse.json(await assignTask(id, parsed.data.staffId));
     return NextResponse.json(await updateTaskDetails(id, parsed.data));
   } catch (err) {

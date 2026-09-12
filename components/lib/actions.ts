@@ -32,8 +32,8 @@ import {
 } from "@/components/lib/channelInventoryMock";
 import type { ImportReport } from "@/components/lib/mockData";
 import type { Booking } from "@/types/booking";
-import { advanceHousekeepingStatusMock, assignHousekeepingStaffMock } from "@/components/lib/housekeepingMock";
 import type { HousekeepingStatus } from "@/components/lib/housekeepingMock";
+import { advanceTaskStatus, assignTask } from "@/services/housekeepingService";
 import {
   createMaintenanceTicketMock,
   updateMaintenanceTicketStatusMock,
@@ -358,9 +358,23 @@ export async function searchMockAction(query: string): Promise<SearchResult[]> {
 
 // ---- Housekeeping ----
 
+const HOUSEKEEPING_STATUS_TO_PRISMA: Record<HousekeepingStatus, "DIRTY" | "CLEANING" | "INSPECTED" | "READY"> = {
+  dirty: "DIRTY",
+  cleaning: "CLEANING",
+  inspected: "INSPECTED",
+  ready: "READY",
+};
+
 export async function advanceHousekeepingStatusAction(id: string, next: HousekeepingStatus): Promise<ActionResult> {
+  let staff;
   try {
-    advanceHousekeepingStatusMock(id, next);
+    staff = await requireStaffForAction();
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Not authenticated" };
+  }
+  try {
+    await advanceTaskStatus(id, HOUSEKEEPING_STATUS_TO_PRISMA[next]);
+    await logAction({ staffId: staff.id, action: "housekeeping.status_change", entityType: "HousekeepingTask", entityId: id, details: { to: next } });
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not update housekeeping status" };
   }
@@ -368,9 +382,16 @@ export async function advanceHousekeepingStatusAction(id: string, next: Housekee
   return { ok: true };
 }
 
-export async function assignHousekeepingStaffAction(id: string, staffName: string): Promise<ActionResult> {
+export async function assignHousekeepingStaffAction(id: string, staffId: string | null): Promise<ActionResult> {
+  let staff;
   try {
-    assignHousekeepingStaffMock(id, staffName);
+    staff = await requireStaffForAction();
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Not authenticated" };
+  }
+  try {
+    await assignTask(id, staffId);
+    await logAction({ staffId: staff.id, action: "housekeeping.assign", entityType: "HousekeepingTask", entityId: id, details: { assignedToId: staffId } });
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not assign staff" };
   }

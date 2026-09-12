@@ -6,10 +6,17 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowRight, faArrowRotateLeft, faUser } from "@fortawesome/free-solid-svg-icons";
 import { Select } from "@/components/ui/Select";
 import { advanceHousekeepingStatusAction, assignHousekeepingStaffAction } from "@/components/lib/actions";
-import { MOCK_STAFF } from "@/constants/staff";
 import type { HousekeepingTask, HousekeepingStatus } from "@/components/lib/housekeepingMock";
 
-const HOUSEKEEPING_STAFF = MOCK_STAFF.filter((s) => s.role === "HOUSEKEEPING");
+// Real staff (real IDs, not names) passed in from the page — assignment sends
+// a staffId, matching housekeepingService.assignTask(id, staffId), not a free-text
+// name. Superset of HousekeepingTask so this component works against both the
+// mock store (which has assignedToId too, once wired) and real data.
+export interface StaffOption {
+  id: string;
+  name: string;
+}
+type TaskWithRealAssignee = HousekeepingTask & { assignedToId?: string };
 
 const COLUMNS: { status: HousekeepingStatus; label: string; headerStyle: string }[] = [
   { status: "dirty", label: "Dirty", headerStyle: "bg-red-50 text-red-700" },
@@ -37,7 +44,7 @@ const NEXT_STATUS: Record<HousekeepingStatus, HousekeepingStatus | null> = {
   ready: null,
 };
 
-function TaskCard({ task }: { task: HousekeepingTask }) {
+function TaskCard({ task, staff }: { task: TaskWithRealAssignee; staff: StaffOption[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -54,9 +61,9 @@ function TaskCard({ task }: { task: HousekeepingTask }) {
     });
   }
 
-  function assignStaff(name: string) {
+  function assignStaff(staffId: string) {
     startTransition(async () => {
-      await assignHousekeepingStaffAction(task.id, name);
+      await assignHousekeepingStaffAction(task.id, staffId || null);
       router.refresh();
     });
   }
@@ -73,14 +80,14 @@ function TaskCard({ task }: { task: HousekeepingTask }) {
       <div className="flex items-center gap-1.5 text-xs text-neutral-500">
         <FontAwesomeIcon icon={faUser} className="h-3 w-3" />
         <Select
-          value={task.assignedStaff ?? ""}
+          value={task.assignedToId ?? ""}
           onChange={(e) => assignStaff(e.target.value)}
           className="text-xs py-1 px-1.5 flex-1"
           disabled={pending}
         >
           <option value="">Unassigned</option>
-          {HOUSEKEEPING_STAFF.map((s) => (
-            <option key={s.email} value={s.name}>
+          {staff.map((s) => (
+            <option key={s.id} value={s.id}>
               {s.name}
             </option>
           ))}
@@ -122,7 +129,7 @@ function TaskCard({ task }: { task: HousekeepingTask }) {
   );
 }
 
-export function HousekeepingBoard({ tasks }: { tasks: HousekeepingTask[] }) {
+export function HousekeepingBoard({ tasks, staff }: { tasks: TaskWithRealAssignee[]; staff: StaffOption[] }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       {COLUMNS.map((col) => {
@@ -135,7 +142,7 @@ export function HousekeepingBoard({ tasks }: { tasks: HousekeepingTask[] }) {
             </div>
             <div className="flex flex-col gap-2">
               {colTasks.map((task) => (
-                <TaskCard key={task.id} task={task} />
+                <TaskCard key={task.id} task={task} staff={staff} />
               ))}
               {colTasks.length === 0 && <div className="text-xs text-neutral-300 text-center py-4">Empty</div>}
             </div>

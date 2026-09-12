@@ -1,13 +1,17 @@
 import { db } from "@/lib/db";
 import type { HousekeepingStatus } from "@prisma/client";
 
-// Linear, no skipping — matches the UI branch's mock enforcement exactly
-// (Dirty -> Cleaning -> Inspected -> Ready).
-const NEXT_STATUS: Record<HousekeepingStatus, HousekeepingStatus | null> = {
-  DIRTY: "CLEANING",
-  CLEANING: "INSPECTED",
-  INSPECTED: "READY",
-  READY: null, // terminal for the day
+// Forward progression is linear (Dirty -> Cleaning -> Inspected -> Ready), but two
+// backward moves are real, intentional UI actions, not skips: an inspector can fail
+// a room (Inspected -> Dirty, re-clean) and a Ready room can be marked dirty again
+// (e.g. a guest re-occupied it) — matches exactly what HousekeepingBoard.tsx's UI
+// offers, not a superset. No other transition is allowed (e.g. Dirty -> Ready
+// directly, or Cleaning -> Dirty, aren't real actions the UI exposes).
+const ALLOWED_TRANSITIONS: Record<HousekeepingStatus, HousekeepingStatus[]> = {
+  DIRTY: ["CLEANING"],
+  CLEANING: ["INSPECTED"],
+  INSPECTED: ["READY", "DIRTY"],
+  READY: ["DIRTY"],
 };
 
 function startOfDay(date: Date): Date {
@@ -43,10 +47,12 @@ export async function listTasksForDate(date: Date) {
   });
 }
 
-export async function advanceTaskStatus(id: string) {
+export async function advanceTaskStatus(id: string, next: HousekeepingStatus) {
   const task = await db.housekeepingTask.findUniqueOrThrow({ where: { id } });
-  const next = NEXT_STATUS[task.status];
-  if (!next) throw new Error(`Task is already ${task.status} — nothing further today`);
+  const allowed = ALLOWED_TRANSITIONS[task.status];
+  if (!allowed.includes(next)) {
+    throw new Error(`Cannot move a ${task.status.toLowerCase()} task to ${next.toLowerCase()}`);
+  }
   return db.housekeepingTask.update({ where: { id }, data: { status: next } });
 }
 
