@@ -29,10 +29,16 @@ async function nextInvoiceNumber(): Promise<string> {
 
 // v1 assumes every guest is intra-state (CGST+SGST) — inter-state (IGST) needs the
 // guest's billing state, which isn't captured yet. Deferred; see CLAUDE.md v1 scope.
+//
+// Idempotency changed shape 2026-09-24: Folio.bookingId is no longer @unique (see
+// the schema comment on Booking.folios) — "the folio for this booking" is now "the
+// latest NON-VOIDED folio for this booking", found with findFirst + ordering, not
+// a unique-constraint lookup. Voiding one and landing on this page again correctly
+// generates a fresh one instead of either erroring or resurrecting the voided row.
 export async function generateFolio(bookingId: string) {
   const booking = await db.booking.findUniqueOrThrow({ where: { id: bookingId } });
 
-  const existing = await db.folio.findUnique({ where: { bookingId } });
+  const existing = await db.folio.findFirst({ where: { bookingId, voided: false }, orderBy: { createdAt: "desc" } });
   if (existing) return existing; // idempotent — never double-bill the same booking
 
   const baseAmount = booking.amount;
@@ -58,6 +64,31 @@ export async function generateFolio(bookingId: string) {
   });
 }
 
+// The current (latest non-voided) folio, or null if none has been generated yet.
 export async function getFolio(bookingId: string) {
-  return db.folio.findUnique({ where: { bookingId } });
+  return db.folio.findFirst({ where: { bookingId, voided: false }, orderBy: { createdAt: "desc" } });
+}
+
+// Every folio ever issued for this booking, newest first — including voided ones,
+// so the folio page can show void history (invoice number + reason) as an audit
+// trail, same as the mock layer already did.
+export async function listFoliosForBooking(bookingId: string) {
+  return db.folio.findMany({ where: { bookingId }, orderBy: { createdAt: "desc" } });
+}
+
+// A voided invoice stays in the table (GST law requires an invoice number to never
+// just vanish) — this only flips the flag. The next generateFolio() call for the
+// same booking correctly creates a fresh one, since the voided row no longer
+// satisfies the "latest non-voided" lookup above.
+export async function voidFolio(folioId: string, reason: string) {
+  const folio = await db.folio.findUniqueOrThrow({ where: { id: folioId } });
+  if (folio.voided) throw new Error("This invoice is already voided");
+  return db.folio.update({ where: { id: folioId }, data: { voided: true, voidReason: reason } });
+}
+
+// Every active (non-voided) invoice, for the GSTR-1 CSV export — voided rows are
+// correctly excluded, since they were superseded and would double-count outward
+// supply if included alongside their replacement.
+export async function listActiveFolios() {
+  return db.folio.findMany({ where: { voided: false }, orderBy: { createdAt: "asc" } });
 }

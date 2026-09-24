@@ -317,7 +317,9 @@ export async function undoBookingStatus(id: string): Promise<Booking> {
   if (!target) {
     throw new Error(`Cannot undo a ${existing.status.toLowerCase()} booking — nothing to revert to`);
   }
-  const folio = await db.folio.findUnique({ where: { bookingId: id }, select: { id: true } });
+  // Any folio at all (voided or not) counts as "a financial record exists" — even a
+  // voided one is a real historical GST record kept for audit, not a clean slate.
+  const folio = await db.folio.findFirst({ where: { bookingId: id }, select: { id: true } });
   if (folio) {
     throw new Error("Cannot undo — an invoice has already been generated for this booking. Use void/reissue instead.");
   }
