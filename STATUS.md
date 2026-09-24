@@ -463,4 +463,15 @@ Both pages now call their real services directly (Server Components), adapting P
 
 **Current real state, all 6 screens asked about:** Dashboard, Calendar, Bookings, Rooms, Housekeeping, Maintenance are now ALL fully real — no mock reads or writes remaining in any of them. Verified: clean build, live deploy confirmed (both new routes correctly redirect unauthenticated, no crash).
 
-**Testing note:** wanted to verify end-to-end via a real browser login this session but couldn't get a working demo password quickly (Supabase Admin API's newer `sb_secret_...` key format isn't accepted by `/auth/v1/admin/*` endpoints — same gotcha as the connection-pool session earlier, worth documenting in CLAUDE.md's Supabase gotchas if it comes up again). Verification here is build-clean + code-review + live-redirect-check only, not a real click-through — worth an actual browser pass once login is confirmed working.
+**Testing note:** wanted to verify end-to-end via a real browser login this session but couldn't get a working demo password quickly (Supabase Admin API's newer `sb_secret_...` key format isn't accepted by `/auth/v1/admin/*` endpoints — same gotcha as the connection-pool session earlier, worth documenting in CLAUDE.md's Supabase gotchas if it comes up again). Verification here is build-clean + code-review + live-redirect-check only, not a real click-through — worth an actual browser pass once login is confirmed working. **Resolved same day:** real demo password is `1234`, not the documented `demo123456` — corrected in memory.
+
+## 2026-09-24 — Abhay — Resuming after a gap; working the remaining backlog, backend + UI both
+
+Pulled `main` — no new commits from either side since 2026-09-12 (`git log origin/main..origin/feature/dashboard-ui` empty, fully in sync). Picking up the two concrete UI-only-mock gaps left over from the Housekeeping/Maintenance pass, plus whatever else surfaces. Team-split note: user explicitly said to do real UI work too when a task calls for it, not just backend — noted in memory ([[feedback_stay_in_backend_lane]]).
+
+**Plan for this session, in order:**
+1. Wire Rate rules UI (`/settings` → Pricing tab) to the real `rateRuleService`/`GET-POST /api/settings/rate-rules` — currently reads `rateRulesMock.ts` despite the backend being live since 2026-09-11
+2. Wire Activity log UI (`/activity-log`) to real `listAuditLogs()` — currently reads `auditLogMock.ts`, real data has been accumulating since audit logging went live
+3. Whatever real bugs/gaps turn up while doing 1-2 — fixed inline, documented here, not deferred silently
+
+Will keep committing in small pieces per CLAUDE.md's git workflow and update this entry (or add new ones) as each piece lands.
