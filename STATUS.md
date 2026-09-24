@@ -475,3 +475,23 @@ Pulled `main` — no new commits from either side since 2026-09-12 (`git log ori
 3. Whatever real bugs/gaps turn up while doing 1-2 — fixed inline, documented here, not deferred silently
 
 Will keep committing in small pieces per CLAUDE.md's git workflow and update this entry (or add new ones) as each piece lands.
+
+**1 and 2 done** (`60d9354`, `f8987c2`) — both pages now read/write through the real services, same "adapt shape at page level" pattern as Housekeeping/Maintenance.
+
+## 2026-09-24 — Abhay — Billing/Payments depth: backend fully built, UI wired off mock (long-flagged v1-scope gap closed)
+
+This was the last real gap: Billing/Payments UI depth (payment recording, refunds+credit-notes, void-and-reissue invoicing, cash register, GSTR-1 export) landed on the UI side back on 2026-09-08 but the backend stayed 100% mock — explicitly flagged every time this doc mentioned it since, and unlike the UI-stub screens (Channels/Users/Marketing/etc.), this one IS in CLAUDE.md's locked v1 scope, not creep.
+
+**Schema + migration** (`f8672c0`, `20260924065242_billing_payments_depth`): new `Payment` (method/type/amount/note, indexed on bookingId+recordedAt), `CreditNote` (auto-numbered `CN-<year>-NNNNN`), `CashRegisterDay` + `CashPaidOutEntry`. `Folio.bookingId` lost its `@unique` constraint — a voided invoice has to stay in history for audit (GST law: an invoice number never disappears) while a fresh one gets issued after, so "the current folio" became `findFirst` ordered by `createdAt` filtered on `voided: false`, not a unique lookup. Fixed this in both places it broke (`billingService.ts` and, less obviously, `bookingService.undoBookingStatus`, which was doing its own `findUnique` on the same field).
+
+**Services** (`2428719`): `paymentService.ts` (record/list payments, derive balance fresh from real rows — never stored, same rule as GST amounts), `cashRegisterService.ts` (today's register auto-inits from the last closed day's actual closing balance, paid-out entries, close-with-variance). `recordRefund` is a real Prisma transaction — a refund payment row and its credit note are created together, never one without the other.
+
+**API routes** (`9a0aa40`): `POST /api/bookings/:id/payments`, `POST /api/bookings/:id/refund`, `POST /api/bookings/:id/folio/void`, `GET/PATCH /api/cash-register`, `POST /api/cash-register/paid-out`, `GET /api/cash-register/history` — all through `requireStaff()` + `logAction`, zod-validated, following the exact pattern every other route in this repo uses.
+
+**UI wiring** (`38bfb0c`): folio page, reports (GSTR-1 export + outstanding-balance list), and cash-register page swapped off `paymentsMock.ts`/`cashRegisterMock.ts` onto the real services; `PaymentPanel`/`CashRegisterPanel` components themselves needed no changes (their prop shapes already matched, once Prisma's UPPERCASE `PaymentMethod`/`PaymentType` enums were mapped to the UI's lowercase contract at the page/action boundary — same adapter approach as everywhere else, not a component rewrite). All 4 payment/refund/void/cash-register Server Actions in `actions.ts` gained `requireStaffForAction()` + `logAction` (previously had neither, since the mock layer had no concept of a caller). Removed one now-dead action (`generateFolioAction`, mock-only, unreferenced anywhere).
+
+Verified with a clean production build after every commit in this sequence (schema→services→routes→UI), no click-through yet — worth a real browser pass recording a payment and closing the register end-to-end next session.
+
+**Not built (unchanged, flagged before and still true):** live Razorpay/gateway call (BYOG stub only, per CLAUDE.md), OTA/bank reconciliation (nothing real to reconcile against), extra-service line items still don't run through the GST folio's tax calc.
+
+**What's left in the backlog after this:** ID+photo capture at check-in (needs Supabase Storage bucket, deferred by founder), real email delivery (deferred, same "never live-send until content reviewed" gate as WhatsApp), folio-preview-during-booking-creation (lower priority, not started). Continuing to work through whatever else surfaces per the standing "keep going, fix errors as found" instruction.
