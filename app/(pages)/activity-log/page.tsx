@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faClockRotateLeft } from "@fortawesome/free-solid-svg-icons";
-import { listAuditLogsMock, listAuditLogEntityTypesMock } from "@/components/lib/auditLogMock";
-import { IllustrativeBanner } from "@/components/IllustrativeBanner";
+import { listAuditLogs } from "@/services/auditLogService";
 
 const DOMAIN_STYLES: Record<string, string> = {
   booking: "bg-blue-100 text-blue-700",
@@ -20,9 +19,13 @@ function actionLabel(action: string): string {
     .join(" ");
 }
 
-function formatDetails(details: Record<string, unknown> | null): string {
-  if (!details) return "—";
-  return Object.entries(details)
+// Real AuditLog.details is Prisma JSON — could be null, a primitive, an array,
+// or (the actual shape logAction always writes) a flat object. Guard for the
+// non-object cases explicitly rather than assuming the mock's always-object shape.
+function formatDetails(details: unknown): string {
+  if (details === null || details === undefined) return "—";
+  if (typeof details !== "object" || Array.isArray(details)) return String(details);
+  return Object.entries(details as Record<string, unknown>)
     .map(([k, v]) => `${k}: ${v}`)
     .join(", ");
 }
@@ -33,8 +36,12 @@ export default async function ActivityLogPage({
   searchParams: Promise<{ entityType?: string }>;
 }) {
   const { entityType } = await searchParams;
-  const entityTypes = listAuditLogEntityTypesMock();
-  const entries = listAuditLogsMock({ entityType });
+  // Fetch once, unfiltered, up to a real cap — real `listAuditLogs` doesn't have a
+  // separate "distinct entity types" query, so the filter pills are derived from
+  // whatever's actually in the last 200 entries rather than a second round-trip.
+  const allEntries = await listAuditLogs({ limit: 200 });
+  const entityTypes = [...new Set(allEntries.map((e) => e.entityType))].sort();
+  const entries = entityType ? allEntries.filter((e) => e.entityType === entityType) : allEntries;
 
   return (
     <div className="flex flex-col gap-6">
@@ -42,12 +49,6 @@ export default async function ActivityLogPage({
         <h1 className="text-xl font-semibold">Activity log</h1>
         <p className="text-sm text-neutral-500">Who did what, across every real write action in GRAP.</p>
       </div>
-
-      <IllustrativeBanner>
-        Real, live backend — every booking/room/pricing write action already logs to the real <span className="font-mono">AuditLog</span>{" "}
-        table (see <span className="font-mono">BACKEND_LOGIC.md</span>). This viewer isn&apos;t wired to it yet, so the entries below are
-        sample data only.
-      </IllustrativeBanner>
 
       <div className="flex flex-wrap gap-2">
         <Link
