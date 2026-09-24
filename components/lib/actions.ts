@@ -38,11 +38,7 @@ import { createTicket, updateTicketStatus, assignTechnician } from "@/services/m
 import { getRoomByNumber } from "@/services/roomService";
 import { MAINTENANCE_CATEGORIES, MAINTENANCE_PRIORITIES } from "@/constants/maintenance";
 import type { MaintenanceStatus, MaintenanceTicket } from "@/components/lib/maintenanceMock";
-import {
-  createRateRuleMock,
-  setRateRuleActiveMock,
-  deleteRateRuleMock,
-} from "@/components/lib/rateRulesMock";
+import { createRateRule, updateRateRule, deleteRateRule } from "@/services/rateRuleService";
 import { RATE_RULE_TYPES, ADJUSTMENT_TYPES } from "@/constants/rateRules";
 import type { RateRuleType, AdjustmentType } from "@/constants/rateRules";
 
@@ -643,12 +639,22 @@ export async function createRateRuleAction(input: {
   adjustmentValue: number;
   priority?: number;
 }): Promise<ActionResult> {
+  let staff;
+  try {
+    staff = await requireStaffForAction();
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Not authenticated" };
+  }
+  if (staff.role !== "OWNER") {
+    return { ok: false, error: "Owner access required" };
+  }
   const parsed = createRateRuleSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid rate rule details" };
   }
   try {
-    createRateRuleMock(parsed.data);
+    const rule = await createRateRule(parsed.data);
+    await logAction({ staffId: staff.id, action: "rate_rule.create", entityType: "RateRule", entityId: rule.id, details: { name: rule.name, type: rule.type } });
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not create rate rule" };
   }
@@ -657,8 +663,18 @@ export async function createRateRuleAction(input: {
 }
 
 export async function setRateRuleActiveAction(id: string, active: boolean): Promise<ActionResult> {
+  let staff;
   try {
-    setRateRuleActiveMock(id, active);
+    staff = await requireStaffForAction();
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Not authenticated" };
+  }
+  if (staff.role !== "OWNER") {
+    return { ok: false, error: "Owner access required" };
+  }
+  try {
+    await updateRateRule(id, { active });
+    await logAction({ staffId: staff.id, action: "rate_rule.toggle_active", entityType: "RateRule", entityId: id, details: { active } });
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not update rate rule" };
   }
@@ -667,8 +683,18 @@ export async function setRateRuleActiveAction(id: string, active: boolean): Prom
 }
 
 export async function deleteRateRuleAction(id: string): Promise<ActionResult> {
+  let staff;
   try {
-    deleteRateRuleMock(id);
+    staff = await requireStaffForAction();
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Not authenticated" };
+  }
+  if (staff.role !== "OWNER") {
+    return { ok: false, error: "Owner access required" };
+  }
+  try {
+    await deleteRateRule(id);
+    await logAction({ staffId: staff.id, action: "rate_rule.delete", entityType: "RateRule", entityId: id });
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not delete rate rule" };
   }

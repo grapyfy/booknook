@@ -6,7 +6,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrash } from "@fortawesome/free-solid-svg-icons";
 import { setRateRuleActiveAction, deleteRateRuleAction } from "@/components/lib/actions";
 import { ADJUSTMENT_TYPE_LABELS, DAY_LABELS } from "@/constants/rateRules";
-import type { RateRule } from "@/components/lib/rateRulesMock";
+import type { RateRule } from "@/services/rateRuleService";
 
 export function RateRuleRow({ rule }: { rule: RateRule }) {
   const router = useRouter();

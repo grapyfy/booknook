@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { listRoomsMock } from "@/components/lib/mockData";
-import { listRateRulesMock } from "@/components/lib/rateRulesMock";
+import { listRateRules } from "@/services/rateRuleService";
 import { getPropertySettings } from "@/services/settingsService";
 import { Button } from "@/components/ui/Button";
 import { FormField, Input } from "@/components/ui/Input";
@@ -25,7 +25,7 @@ export default async function SettingsPage({
   const { tab: tabParam } = await searchParams;
   const tab = TABS.some((t) => t.key === tabParam) ? tabParam! : "property";
   const rooms = listRoomsMock();
-  const rateRules = listRateRulesMock();
+  const rateRules = await listRateRules();
   const settings = await getPropertySettings();
 
   const categories = new Map<string, { count: number; rates: number[] }>();
@@ -146,12 +146,10 @@ export default async function SettingsPage({
 
       {tab === "pricing" && (
         <div className="flex flex-col gap-4">
-          <IllustrativeBanner>
-            Dynamic pricing (weekly/festival rate rules) is real, live backend logic — <span className="font-mono">RateRule</span>{" "}
-            table, migrated, wired into booking pricing (see <span className="font-mono">BACKEND_LOGIC.md</span>). This screen isn&apos;t
-            wired to it yet, so changes here are sample data only, same &quot;mock first, swap once ready&quot; step every screen
-            goes through.
-          </IllustrativeBanner>
+          <p className="text-sm text-neutral-500">
+            Real, live rules — every rule below actually affects room pricing on new bookings (see{" "}
+            <span className="font-mono">BACKEND_LOGIC.md</span>). Owner-only.
+          </p>
           <div className="rounded-lg border border-neutral-200 bg-white overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
