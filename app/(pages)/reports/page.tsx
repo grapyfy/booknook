@@ -1,18 +1,17 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFileCsv, faEnvelope, faReceipt } from "@fortawesome/free-solid-svg-icons";
-import { listFoliosMock, nightsBetween, gstRateForRoomRate } from "@/components/lib/mockData";
-import { computeBookingBalanceMock } from "@/components/lib/paymentsMock";
+import { nightsBetween, gstRateForRoomRate } from "@/components/lib/mockData";
+import { computeBookingBalance } from "@/services/paymentService";
+import { listActiveFolios } from "@/services/billingService";
 import { getDashboardStats } from "@/services/dashboardService";
 import { listBookings } from "@/services/bookingService";
 import { Button } from "@/components/ui/Button";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
 
-// occupancy/ADR/RevPAR and the booking list are real (dashboardService/bookingService).
-// GSTR-1 export and outstanding-balance still read from the mock payments/folio layer —
-// the real Payment/CreditNote backend isn't built yet (flagged in STATUS.md's
-// "Billing/Payments depth" gap, not something silently skipped here). nightsBetween/
-// gstRateForRoomRate come from mockData.ts's shared exports (Gautam's hardcoded-values
-// audit) rather than a locally re-declared copy — same single-source-of-truth fix.
+// occupancy/ADR/RevPAR, the booking list, and (as of the billing/payments depth
+// pass) the GSTR-1 export + outstanding balances are all real now. nightsBetween/
+// gstRateForRoomRate still come from mockData.ts's shared exports (Gautam's
+// hardcoded-values audit) — pure functions, no mock store behind them.
 export default async function ReportsPage() {
   const stats = await getDashboardStats();
   const bookings = await listBookings();
@@ -20,17 +19,21 @@ export default async function ReportsPage() {
   // Outstanding balance across every non-cancelled booking — the folio total
   // (room + GST) is the same total the folio page bills against, so this is
   // the same real balance a front-desk person would see per booking, summed.
-  const outstandingBookings = bookings
-    .filter((b) => b.status !== "cancelled")
-    .map((b) => {
-      const nights = nightsBetween(b.checkIn, b.checkOut);
-      const serviceTotal = (b.extraServices ?? []).reduce((sum, s) => sum + s.amount, 0);
-      const gstRate = gstRateForRoomRate(b.amount / nights);
-      const roomTotalInclGst = Math.round(b.amount * (1 + gstRate / 100));
-      const totalDue = roomTotalInclGst + serviceTotal;
-      const balance = computeBookingBalanceMock(b.id, totalDue);
-      return { booking: b, balance: balance.balance };
-    })
+  const outstandingBookings = (
+    await Promise.all(
+      bookings
+        .filter((b) => b.status !== "cancelled")
+        .map(async (b) => {
+          const nights = nightsBetween(b.checkIn, b.checkOut);
+          const serviceTotal = (b.extraServices ?? []).reduce((sum, s) => sum + s.amount, 0);
+          const gstRate = gstRateForRoomRate(b.amount / nights);
+          const roomTotalInclGst = Math.round(b.amount * (1 + gstRate / 100));
+          const totalDue = roomTotalInclGst + serviceTotal;
+          const balance = await computeBookingBalance(b.id, totalDue);
+          return { booking: b, balance: balance.balance };
+        }),
+    )
+  )
     .filter((row) => row.balance > 0)
     .sort((a, b) => b.balance - a.balance);
   const totalOutstanding = outstandingBookings.reduce((sum, r) => sum + r.balance, 0);
@@ -38,10 +41,10 @@ export default async function ReportsPage() {
   // GSTR-1-style export: every active (non-voided) invoice generated so far.
   // Voided invoices are correctly excluded — they were superseded, so they'd
   // double-count outward supply if included.
-  const activeFolios = listFoliosMock().filter((f) => !f.voided);
+  const activeFolios = await listActiveFolios();
   const gstr1Rows = activeFolios.map((f) => ({
     invoiceNumber: f.invoiceNumber,
-    invoiceDate: f.createdAt.slice(0, 10),
+    invoiceDate: f.createdAt.toISOString().slice(0, 10),
     sacCode: f.sacCode,
     taxableValue: f.baseAmount,
     cgst: f.cgst,

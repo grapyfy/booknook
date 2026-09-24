@@ -1,9 +1,9 @@
-import { getOrInitTodayRegisterMock, listRegisterHistoryMock } from "@/components/lib/cashRegisterMock";
+import { getOrInitTodayRegister, listRegisterHistory } from "@/services/cashRegisterService";
 import { CashRegisterPanel } from "@/components/CashRegisterPanel";
 
-export default function CashRegisterPage() {
-  const today = getOrInitTodayRegisterMock();
-  const history = listRegisterHistoryMock().filter((d) => d.date !== today.date);
+export default async function CashRegisterPage() {
+  const today = await getOrInitTodayRegister();
+  const history = (await listRegisterHistory()).filter((d) => d.date !== today.date);
 
   return (
     <div className="flex flex-col gap-6">

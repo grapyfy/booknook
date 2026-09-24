@@ -3,13 +3,16 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faIndianRupeeSign } from "@fortawesome/free-solid-svg-icons";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import { getBooking } from "@/services/bookingService";
-import { generateFolio } from "@/services/billingService";
-import { listPaymentsForBookingMock, listCreditNotesForBookingMock, computeBookingBalanceMock } from "@/components/lib/paymentsMock";
-import { listFoliosMock } from "@/components/lib/mockData";
+import { generateFolio, listFoliosForBooking } from "@/services/billingService";
+import { listPaymentsForBooking, listCreditNotesForBooking, computeBookingBalance } from "@/services/paymentService";
 import { Button } from "@/components/ui/Button";
 import { PaymentPanel } from "@/components/PaymentPanel";
 import { nightsBetween } from "@/lib/dates";
 import type { Booking, Folio } from "@/types/booking";
+import type { PaymentMethod, PaymentType } from "@/components/lib/paymentsMock";
+
+const METHOD_FROM_PRISMA: Record<string, PaymentMethod> = { CASH: "cash", UPI: "upi", CARD: "card", BANK_TRANSFER: "bank_transfer" };
+const TYPE_FROM_PRISMA: Record<string, PaymentType> = { ADVANCE: "advance", PARTIAL: "partial", FULL: "full", REFUND: "refund" };
 
 const PAYMENT_STATUS_STYLES: Record<string, string> = {
   prepaid: "bg-green-100 text-green-700",
@@ -29,9 +32,6 @@ export default async function FolioPage({ params }: { params: Promise<{ id: stri
   if (!booking) notFound();
 
   // Idempotent generate-or-fetch — safe to land on this page repeatedly.
-  // Cast to the shared Folio contract: the real billingService doesn't have
-  // voided/voidReason yet (billing-depth backend not built, see CLAUDE.md) —
-  // both stay undefined until that work lands, which is what the contract expects.
   const folio = (await generateFolio(id)) as unknown as Folio;
 
   const nights = nightsBetween(booking.checkIn, booking.checkOut);
@@ -40,10 +40,30 @@ export default async function FolioPage({ params }: { params: Promise<{ id: stri
   const grandTotal = folio.totalAmount + serviceTotal;
   const paymentStatus = booking.paymentStatus ?? "postpaid";
 
-  const payments = listPaymentsForBookingMock(booking.id);
-  const creditNotes = listCreditNotesForBookingMock(booking.id);
-  const balance = computeBookingBalanceMock(booking.id, grandTotal);
-  const voidedFolios = listFoliosMock().filter((f) => f.bookingId === booking.id && f.voided);
+  const [realPayments, realCreditNotes, balance, allFolios] = await Promise.all([
+    listPaymentsForBooking(booking.id),
+    listCreditNotesForBooking(booking.id),
+    computeBookingBalance(booking.id, grandTotal),
+    listFoliosForBooking(booking.id),
+  ]);
+  const payments = realPayments.map((p) => ({
+    id: p.id,
+    bookingId: p.bookingId,
+    method: METHOD_FROM_PRISMA[p.method],
+    type: TYPE_FROM_PRISMA[p.type],
+    amount: p.amount,
+    note: p.note ?? undefined,
+    recordedAt: p.recordedAt.toISOString(),
+  }));
+  const creditNotes = realCreditNotes.map((c) => ({
+    id: c.id,
+    bookingId: c.bookingId,
+    creditNoteNumber: c.creditNoteNumber,
+    amount: c.amount,
+    reason: c.reason,
+    createdAt: c.createdAt.toISOString(),
+  }));
+  const voidedFolios = allFolios.filter((f) => f.voided);
 
   const whatsappPreview = `Hi ${booking.guest.name}, your booking at GRAP is confirmed!\nRoom ${booking.roomNumber} · ${booking.checkIn} to ${booking.checkOut}\nTotal: ₹${folio.totalAmount.toLocaleString("en-IN")} (incl. GST)\nInvoice: ${folio.invoiceNumber}`;
 

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { setOpeningBalanceAction, addCashPaidOutAction, closeRegisterAction } from "@/components/lib/actions";
-import type { CashRegisterSummary } from "@/components/lib/cashRegisterMock";
+import type { CashRegisterSummary } from "@/services/cashRegisterService";
 
 export function CashRegisterPanel({ today }: { today: CashRegisterSummary }) {
   const router = useRouter();

@@ -7,24 +7,24 @@ import { z } from "zod";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import {
-  generateFolioMock,
   importCsvMock,
   listBookingsMock,
   listRoomsMock,
-  voidFolioMock,
 } from "@/components/lib/mockData";
 import { createRoom } from "@/services/roomService";
 import { createBooking, rescheduleBooking, updateBookingStatus, createGroupBooking, undoBookingStatus } from "@/services/bookingService";
 import { requireStaffForAction } from "@/lib/require-staff";
 import { logAction } from "@/services/auditLogService";
 import { getPropertySettings, updatePropertySettings } from "@/services/settingsService";
-import { recordPaymentMock, issueCreditNoteMock, PAYMENT_METHODS } from "@/components/lib/paymentsMock";
+import { PAYMENT_METHODS } from "@/constants/payments";
 import type { PaymentMethod, PaymentType } from "@/components/lib/paymentsMock";
+import { recordPayment, recordRefund } from "@/services/paymentService";
+import { getFolio, voidFolio } from "@/services/billingService";
 import {
-  setOpeningBalanceMock,
-  addCashPaidOutMock,
-  closeRegisterMock,
-} from "@/components/lib/cashRegisterMock";
+  setOpeningBalance,
+  addCashPaidOut,
+  closeRegister,
+} from "@/services/cashRegisterService";
 import {
   setStopSellMock,
   setAllChannelsStopSellMock,
@@ -303,10 +303,6 @@ export async function undoBookingStatusAction(id: string): Promise<ActionResult>
   return { ok: true };
 }
 
-export async function generateFolioAction(bookingId: string) {
-  return generateFolioMock(bookingId);
-}
-
 export async function importCsvAction(csvText: string): Promise<ImportReport> {
   return importCsvMock(csvText);
 }
@@ -497,6 +493,12 @@ const recordPaymentSchema = z.object({
   note: z.string().max(200).optional().or(z.literal("")),
 });
 
+// UI/mock layer keeps lowercase enum values (contract predates the real schema);
+// Prisma's PaymentMethod/PaymentType are uppercase — mapped here at the boundary,
+// same "adapt shape at the action/page level" approach used for rate rules etc.
+const METHOD_TO_PRISMA = { cash: "CASH", upi: "UPI", card: "CARD", bank_transfer: "BANK_TRANSFER" } as const;
+const TYPE_TO_PRISMA = { advance: "ADVANCE", partial: "PARTIAL", full: "FULL" } as const;
+
 export async function recordPaymentAction(input: {
   bookingId: string;
   method: PaymentMethod;
@@ -504,12 +506,25 @@ export async function recordPaymentAction(input: {
   amount: number;
   note?: string;
 }): Promise<ActionResult> {
+  let staff;
+  try {
+    staff = await requireStaffForAction();
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Not authenticated" };
+  }
   const parsed = recordPaymentSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid payment details" };
   }
   try {
-    recordPaymentMock({ ...parsed.data, note: parsed.data.note || undefined });
+    const payment = await recordPayment({
+      bookingId: parsed.data.bookingId,
+      method: METHOD_TO_PRISMA[parsed.data.method],
+      type: TYPE_TO_PRISMA[parsed.data.type],
+      amount: parsed.data.amount,
+      note: parsed.data.note || undefined,
+    });
+    await logAction({ staffId: staff.id, action: "payment.record", entityType: "Payment", entityId: payment.id, details: { bookingId: parsed.data.bookingId, method: parsed.data.method, type: parsed.data.type, amount: parsed.data.amount } });
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not record payment" };
   }
@@ -536,19 +551,24 @@ export async function refundBookingAction(input: {
   amount: number;
   reason: string;
 }): Promise<ActionResult> {
+  let staff;
+  try {
+    staff = await requireStaffForAction();
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Not authenticated" };
+  }
   const parsed = refundSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid refund details" };
   }
   try {
-    recordPaymentMock({
+    const result = await recordRefund({
       bookingId: parsed.data.bookingId,
-      method: parsed.data.method,
-      type: "refund",
+      method: METHOD_TO_PRISMA[parsed.data.method],
       amount: parsed.data.amount,
-      note: parsed.data.reason,
+      reason: parsed.data.reason,
     });
-    issueCreditNoteMock(parsed.data.bookingId, parsed.data.amount, parsed.data.reason);
+    await logAction({ staffId: staff.id, action: "payment.refund", entityType: "Payment", entityId: result.payment.id, details: { bookingId: parsed.data.bookingId, amount: parsed.data.amount, creditNoteNumber: result.creditNote.creditNoteNumber, reason: parsed.data.reason } });
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not process refund" };
   }
@@ -559,9 +579,18 @@ export async function refundBookingAction(input: {
 }
 
 export async function voidFolioAction(bookingId: string, reason: string): Promise<ActionResult> {
+  let staff;
+  try {
+    staff = await requireStaffForAction();
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Not authenticated" };
+  }
   if (!reason.trim()) return { ok: false, error: "A reason is required to void an invoice" };
   try {
-    voidFolioMock(bookingId, reason);
+    const current = await getFolio(bookingId);
+    if (!current) throw new Error("No active invoice to void for this booking");
+    const voided = await voidFolio(current.id, reason);
+    await logAction({ staffId: staff.id, action: "folio.void", entityType: "Folio", entityId: voided.id, details: { bookingId, invoiceNumber: voided.invoiceNumber, reason } });
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not void invoice" };
   }
@@ -573,8 +602,15 @@ export async function voidFolioAction(bookingId: string, reason: string): Promis
 // ---- Cash register ----
 
 export async function setOpeningBalanceAction(amount: number): Promise<ActionResult> {
+  let staff;
   try {
-    setOpeningBalanceMock(amount);
+    staff = await requireStaffForAction();
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Not authenticated" };
+  }
+  try {
+    const register = await setOpeningBalance(amount);
+    await logAction({ staffId: staff.id, action: "cash-register.set-opening-balance", entityType: "CashRegisterDay", entityId: register.id, details: { amount } });
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not set opening balance" };
   }
@@ -583,9 +619,16 @@ export async function setOpeningBalanceAction(amount: number): Promise<ActionRes
 }
 
 export async function addCashPaidOutAction(amount: number, note: string): Promise<ActionResult> {
+  let staff;
+  try {
+    staff = await requireStaffForAction();
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Not authenticated" };
+  }
   if (!note.trim()) return { ok: false, error: "A note is required for cash paid out" };
   try {
-    addCashPaidOutMock(amount, note);
+    const register = await addCashPaidOut(amount, note);
+    await logAction({ staffId: staff.id, action: "cash-register.paid-out", entityType: "CashRegisterDay", entityId: register.id, details: { amount, note } });
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not log cash paid out" };
   }
@@ -594,8 +637,15 @@ export async function addCashPaidOutAction(amount: number, note: string): Promis
 }
 
 export async function closeRegisterAction(actualAmount: number): Promise<ActionResult> {
+  let staff;
   try {
-    closeRegisterMock(actualAmount);
+    staff = await requireStaffForAction();
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Not authenticated" };
+  }
+  try {
+    const register = await closeRegister(actualAmount);
+    await logAction({ staffId: staff.id, action: "cash-register.close", entityType: "CashRegisterDay", entityId: register.id, details: { actualAmount, variance: register.variance } });
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not close register" };
   }
