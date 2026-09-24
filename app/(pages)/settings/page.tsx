@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { listRoomsMock } from "@/components/lib/mockData";
+import { listRooms } from "@/services/roomService";
 import { listRateRules } from "@/services/rateRuleService";
 import { getPropertySettings } from "@/services/settingsService";
 import { Button } from "@/components/ui/Button";
@@ -24,7 +24,7 @@ export default async function SettingsPage({
 }) {
   const { tab: tabParam } = await searchParams;
   const tab = TABS.some((t) => t.key === tabParam) ? tabParam! : "property";
-  const rooms = listRoomsMock();
+  const rooms = await listRooms();
   const rateRules = await listRateRules();
   const settings = await getPropertySettings();
 
